@@ -4,29 +4,29 @@ import Layout from '../components/layout/Layout';
 import { useMenu } from '../hooks/useMenu';
 import MenuCard from '../components/menu/MenuCard';
 
-const WHATSAPP_URL = 'https://wa.me/5491112345678?text=Hola%20Sushi%20Queen!%20Quiero%20hacer%20un%20pedido';
+const WHATSAPP_URL = 'https://wa.me/5517966419?text=Hola%20Sushi%20Queen!%20Quiero%20hacer%20un%20pedido';
 
 const MOCK_PROMOS = [
   {
     id: '1',
-    title: '2x1 en Rolls Clásicos',
-    description: 'Todos los martes y jueves, llevá 2 rolls clásicos por el precio de 1.',
+    title: '2x1 en Makis Clásicos',
+    description: 'Todos los martes y jueves, lleva 2 makis clásicos por el precio de 1.',
     image: '/images/promo-1.jpg',
     badge: '2x1',
   },
   {
     id: '2',
-    title: '20% OFF Primer Pedido',
-    description: 'Registrate y obtené un 20% de descuento en tu primera orden online.',
+    title: '15% OFF Primer Pedido',
+    description: 'Regístrate y obtén un 15% de descuento en tu primera orden online.',
     image: '/images/promo-2.jpg',
-    badge: '20% OFF',
+    badge: '15% OFF',
   },
   {
     id: '3',
-    title: 'Combo Familiar $7500',
-    description: '40 piezas variadas + 2 bebidas. Ideal para compartir en familia.',
+    title: 'Paquete Familiar',
+    description: 'Paquete Eby Furai + Yakimeshi + Ensalada + Kushiage. Ideal para compartir.',
     image: '/images/sushi-roll-2.jpg',
-    badge: 'COMBO',
+    badge: 'PAQUETE',
   },
 ];
 
@@ -53,11 +53,12 @@ const Home: React.FC = () => {
             </span>
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
               El mejor sushi <br />
-              <span className="text-sushi-accent">de la ciudad</span>
+              <span className="text-sushi-accent">de la Obrera, CDMX</span>
             </h1>
             <p className="text-gray-300 text-lg mt-6 leading-relaxed">
-              Ingredientes frescos, preparación artesanal y entrega rápida.
-              Descubrí por qué somos los favoritos de Buenos Aires.
+              Ingredientes frescos, preparación artesanal y sabor auténtico.
+              Desde 2018 deleitando paladares en la Colonia Obrera.
+              ⭐ 4.6 en Google Maps · 160+ reseñas
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mt-8">
               <Link to="/menu" className="btn-primary text-center text-lg px-8">
@@ -106,7 +107,7 @@ const Home: React.FC = () => {
             <h2 className="font-display text-3xl font-bold text-white">
               Promociones <span className="text-sushi-accent">Activas</span>
             </h2>
-            <p className="text-gray-400 mt-2">Aprovechá nuestras ofertas especiales</p>
+            <p className="text-gray-400 mt-2">Aprovecha nuestras ofertas especiales</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {MOCK_PROMOS.map((promo) => (
@@ -144,10 +145,10 @@ const Home: React.FC = () => {
       <section className="bg-green-500 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
-            ¿Preferís pedir por WhatsApp?
+            ¿Prefieres pedir por WhatsApp?
           </h2>
           <p className="text-green-100 mb-6 max-w-md mx-auto">
-            Escribinos directamente y te atendemos al instante. Pedidos, consultas, lo que necesites.
+            Escríbenos directamente y te atendemos al instante. Pedidos, consultas, lo que necesites.
           </p>
           <a
             href={WHATSAPP_URL}
@@ -186,26 +187,27 @@ const Home: React.FC = () => {
               Pasión por el sushi desde 2018
             </h2>
             <p className="text-gray-600 mt-4 leading-relaxed">
-              En Sushi Queen combinamos la tradición japonesa con sabores argentinos.
+              En Sushi Queen combinamos la tradición japonesa con el sazón mexicano.
               Cada pieza es preparada con ingredientes frescos del día, técnicas artesanales
-              y mucho amor.
+              y mucho cariño. Somos un negocio familiar en la Colonia Obrera, CDMX.
             </p>
             <p className="text-gray-600 mt-3 leading-relaxed">
-              Nuestro equipo de sushi chefs trabaja para ofrecerte una experiencia
-              gastronómica única, ya sea que nos visites o pidas delivery a tu casa.
+              Identificados como negocio de mujeres, LGBTQ+ friendly, y con una temática
+              de michis que encanta a todos. Ven a disfrutar de juegos de mesa mientras
+              esperas tu orden recién preparada.
             </p>
             <div className="grid grid-cols-3 gap-4 mt-8">
               <div className="text-center">
-                <span className="text-2xl font-bold text-sushi-primary block">50+</span>
+                <span className="text-2xl font-bold text-sushi-primary block">70+</span>
                 <span className="text-xs text-gray-500">Platos en menú</span>
               </div>
               <div className="text-center">
-                <span className="text-2xl font-bold text-sushi-primary block">30 min</span>
-                <span className="text-xs text-gray-500">Delivery promedio</span>
+                <span className="text-2xl font-bold text-sushi-primary block">$80-311</span>
+                <span className="text-xs text-gray-500">Rango de precios</span>
               </div>
               <div className="text-center">
-                <span className="text-2xl font-bold text-sushi-primary block">4.9★</span>
-                <span className="text-xs text-gray-500">Rating Google</span>
+                <span className="text-2xl font-bold text-sushi-primary block">4.6★</span>
+                <span className="text-xs text-gray-500">160 reseñas Google</span>
               </div>
             </div>
           </div>

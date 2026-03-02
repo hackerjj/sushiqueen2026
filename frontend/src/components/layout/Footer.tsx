@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const WHATSAPP_NUMBER = '5491112345678';
+const WHATSAPP_NUMBER = '5517966419';
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=Hola%20Sushi%20Queen!%20Quiero%20hacer%20un%20pedido`;
 
 const Footer: React.FC = () => {
@@ -18,8 +18,11 @@ const Footer: React.FC = () => {
               </span>
             </div>
             <p className="text-sm leading-relaxed">
-              El mejor sushi de la ciudad. Ingredientes frescos, preparación artesanal
-              y entrega rápida a tu puerta.
+              El mejor sushi de la Colonia Obrera, CDMX. Ingredientes frescos, preparación artesanal
+              y un ambiente familiar con temática de michis 🐱
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              ⭐ 4.6 · 160 reseñas en Google Maps
             </p>
           </div>
 
@@ -42,20 +45,26 @@ const Footer: React.FC = () => {
                 <svg className="w-4 h-4 text-sushi-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
-                +54 9 11 1234-5678
+                55 1796 6419
               </li>
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-sushi-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                info@sushiqueen.com
+                sushiqueen.mx
               </li>
               <li className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-sushi-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Buenos Aires, Argentina
+                Jose T. Cuellar 39, Obrera, Cuauhtémoc, 06800 CDMX
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-sushi-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Lun-Dom: 1:00 PM - 10:00 PM
               </li>
             </ul>
 
@@ -87,7 +96,7 @@ const Footer: React.FC = () => {
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-8 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} Sushi Queen. Todos los derechos reservados.
+          © {new Date().getFullYear()} Sushi Queen. Desarrollado por MexInTouch. Todos los derechos reservados.
         </div>
       </div>
     </footer>
