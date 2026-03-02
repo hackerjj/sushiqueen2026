@@ -1,0 +1,118 @@
+# ============================================
+# Sushi Queen - Backend Production Dockerfile
+# Multi-stage build: PHP 8.2-FPM + OPcache
+# ============================================
+
+# ─── Stage 1: Composer Dependencies ──────────
+FROM composer:2.7 AS vendor
+
+WORKDIR /app
+
+COPY composer.json composer.lock* ./
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist
+
+COPY . .
+
+RUN composer dump-autoload \
+    --optimize \
+    --no-dev \
+    --classmap-authoritative
+
+# ─── Stage 2: Production Image ──────────────
+FROM php:8.2-fpm-alpine AS production
+
+LABEL maintainer="Sushi Queen <dev@sushiqueen.com>"
+LABEL description="Sushi Queen Backend - Production"
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    libpng-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    openssl-dev \
+    icu-dev \
+    linux-headers
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    intl \
+    opcache
+
+# Install MongoDB extension
+RUN pecl install mongodb && docker-php-ext-enable mongodb
+
+# Install Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# ─── OPcache Configuration ──────────────────
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.save_comments=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
+
+# ─── PHP-FPM Tuning ─────────────────────────
+RUN echo "pm = dynamic" >> /usr/local/etc/php-fpm.d/zz-production.conf \
+    && echo "pm.max_children = 50" >> /usr/local/etc/php-fpm.d/zz-production.conf \
+    && echo "pm.start_servers = 10" >> /usr/local/etc/php-fpm.d/zz-production.conf \
+    && echo "pm.min_spare_servers = 5" >> /usr/local/etc/php-fpm.d/zz-production.conf \
+    && echo "pm.max_spare_servers = 20" >> /usr/local/etc/php-fpm.d/zz-production.conf \
+    && echo "pm.max_requests = 1000" >> /usr/local/etc/php-fpm.d/zz-production.conf
+
+# ─── PHP Production Settings ────────────────
+RUN echo "display_errors=Off" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "log_errors=On" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "error_reporting=E_ALL & ~E_DEPRECATED & ~E_STRICT" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "max_execution_time=60" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "upload_max_filesize=10M" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "post_max_size=12M" >> /usr/local/etc/php/conf.d/production.ini \
+    && echo "expose_php=Off" >> /usr/local/etc/php/conf.d/production.ini
+
+# Set working directory
+WORKDIR /var/www/backend
+
+# Copy application from vendor stage
+COPY --from=vendor /app /var/www/backend
+
+# Create required directories
+RUN mkdir -p storage/framework/{sessions,views,cache} \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/backend \
+    && chmod -R 775 storage bootstrap/cache
+
+# Create healthcheck script
+RUN echo '#!/bin/sh' > /usr/local/bin/healthcheck.sh \
+    && echo 'php-fpm-healthcheck || exit 1' >> /usr/local/bin/healthcheck.sh \
+    && chmod +x /usr/local/bin/healthcheck.sh
+
+# Switch to non-root user
+USER www-data
+
+EXPOSE 9000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET \
+    cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1
+
+CMD ["php-fpm"]
