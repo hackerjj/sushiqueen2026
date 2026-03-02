@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import type { Customer, ApiResponse, PaginatedResponse, CustomerTier, CustomerSource, Order } from '../../types';
+import type { Customer, ApiResponse, PaginatedResponse, Order } from '../../types';
 
 const tierColors: Record<string, string> = {
   new: 'bg-gray-100 text-gray-700',

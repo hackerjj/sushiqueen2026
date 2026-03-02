@@ -2,12 +2,16 @@ import React from 'react';
 
 const CATEGORIES = [
   { id: 'all', label: 'Todos', emoji: '🍱' },
-  { id: 'Rolls', label: 'Rolls', emoji: '🍣' },
-  { id: 'Nigiri', label: 'Nigiri', emoji: '🍙' },
-  { id: 'Sashimi', label: 'Sashimi', emoji: '🐟' },
-  { id: 'Combos', label: 'Combos', emoji: '🎌' },
-  { id: 'Bebidas', label: 'Bebidas', emoji: '🍵' },
-  { id: 'Extras', label: 'Extras', emoji: '🥢' },
+  { id: 'Especialidades', label: 'Especialidades', emoji: '⭐' },
+  { id: 'Makis', label: 'Makis', emoji: '🍣' },
+  { id: 'Makis Especiales', label: 'Makis Especiales', emoji: '👑' },
+  { id: 'Kushiages', label: 'Kushiages', emoji: '🍢' },
+  { id: 'Tempuras', label: 'Tempuras', emoji: '🍤' },
+  { id: 'Yakimeshi', label: 'Yakimeshi', emoji: '🍚' },
+  { id: 'Yakisoba', label: 'Yakisoba', emoji: '🍜' },
+  { id: 'Teppanyaki', label: 'Teppanyaki', emoji: '🔥' },
+  { id: 'Paquetes', label: 'Paquetes', emoji: '📦' },
+  { id: 'Pastas Queen', label: 'Pastas', emoji: '🍝' },
 ];
 
 interface CategoryFilterProps {
