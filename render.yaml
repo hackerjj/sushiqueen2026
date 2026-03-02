@@ -1,0 +1,62 @@
+services:
+  # Frontend - React/Vite Static Site
+  - type: web
+    name: sushi-queen-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: sushi-queen-backend
+          property: host
+
+  # Backend - PHP Laravel API
+  - type: web
+    name: sushi-queen-backend
+    env: php
+    region: oregon
+    plan: free
+    buildCommand: cd backend && composer install --no-dev --optimize-autoloader
+    startCommand: cd backend && php artisan serve --host=0.0.0.0 --port=$PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        fromDatabase:
+          name: sushi-queen-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromDatabase:
+          name: sushi-queen-redis
+          property: connectionString
+      - key: FUDO_CLIENT_ID
+        sync: false
+      - key: FUDO_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+
+databases:
+  # MongoDB
+  - name: sushi-queen-mongodb
+    databaseName: sushi_queen
+    plan: free
+
+  # Redis
+  - name: sushi-queen-redis
+    plan: free
