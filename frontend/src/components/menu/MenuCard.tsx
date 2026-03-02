@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { MenuItem } from '../../types';
 import { useCart } from '../../hooks/useCart';
+import { formatPrice } from '../../utils/format';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -60,7 +61,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
         {/* Price + Add */}
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
           <span className="text-xl font-bold text-sushi-primary">
-            ${item.price.toLocaleString('es-AR')}
+            {formatPrice(item.price)}
           </span>
           <button
             onClick={handleAdd}

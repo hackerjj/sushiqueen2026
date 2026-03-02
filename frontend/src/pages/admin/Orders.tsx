@@ -72,7 +72,7 @@ const Orders: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const formatCurrency = (n: number) => `$${n.toLocaleString('es-AR')}`;
+  const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <AdminLayout title="Gestión de Órdenes">
@@ -171,7 +171,7 @@ const Orders: React.FC = () => {
                   {statusOptions.find((s) => s.value === detailOrder.status)?.label}
                 </span>
                 <span className="text-sm text-gray-500 capitalize">{detailOrder.source}</span>
-                <span className="text-sm text-gray-400 ml-auto">{new Date(detailOrder.created_at).toLocaleString('es-AR')}</span>
+                <span className="text-sm text-gray-400 ml-auto">{new Date(detailOrder.created_at).toLocaleString('es-MX')}</span>
               </div>
 
               <div>

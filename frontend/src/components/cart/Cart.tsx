@@ -88,7 +88,7 @@ const Cart: React.FC<CartProps> = ({ open, onClose }) => {
                   onClick={handleCheckout}
                   className="flex-[2] btn-primary text-center"
                 >
-                  Ordenar · ${total.toLocaleString('es-AR')}
+                  Ordenar · ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </button>
               </div>
             </div>

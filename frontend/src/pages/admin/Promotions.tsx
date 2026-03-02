@@ -111,7 +111,7 @@ const AdminPromotions: React.FC = () => {
 
   const formatDiscount = (promo: Promotion) => {
     if (promo.discount_type === 'percentage') return `${promo.discount_value}%`;
-    if (promo.discount_type === 'fixed') return `$${promo.discount_value.toLocaleString('es-AR')}`;
+    if (promo.discount_type === 'fixed') return `$${promo.discount_value.toLocaleString('en-US')}`;
     return 'BOGO';
   };
 

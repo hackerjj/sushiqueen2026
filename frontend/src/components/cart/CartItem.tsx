@@ -2,6 +2,8 @@ import React from 'react';
 import type { CartItem as CartItemType } from '../../types';
 import { useCartStore } from '../../store/cartStore';
 
+import { formatPrice } from '../../utils/format';
+
 interface CartItemProps {
   item: CartItemType;
 }
@@ -24,7 +26,7 @@ const CartItem: React.FC<CartItemProps> = ({ item }) => {
           <p className="text-xs text-gray-400 italic mt-0.5">{item.notes}</p>
         )}
         <p className="text-sm font-semibold text-sushi-primary mt-1">
-          ${lineTotal.toLocaleString('es-AR')}
+          {formatPrice(lineTotal)}
         </p>
       </div>
 

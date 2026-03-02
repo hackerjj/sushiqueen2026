@@ -31,7 +31,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({ order }) => {
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-500">Total</span>
           <span className="font-bold text-sushi-primary text-lg">
-            ${order.total.toLocaleString('es-AR')}
+            ${order.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </span>
         </div>
         <div className="flex justify-between items-center">
@@ -54,7 +54,7 @@ const OrderConfirmation: React.FC<OrderConfirmationProps> = ({ order }) => {
                     {item.quantity}x {item.name}
                   </span>
                   <span className="text-gray-500">
-                    ${(item.price * item.quantity).toLocaleString('es-AR')}
+                    ${(item.price * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
                 </li>
               ))}

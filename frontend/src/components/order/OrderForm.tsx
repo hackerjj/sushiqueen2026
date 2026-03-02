@@ -81,7 +81,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ onSubmit, loading }) => {
           value={form.phone}
           onChange={(e) => handleChange('phone', e.target.value)}
           className={`w-full px-4 py-3 rounded-lg border ${errors.phone ? 'border-sushi-primary' : 'border-gray-300'} focus:ring-2 focus:ring-sushi-primary/20 focus:border-sushi-primary outline-none transition-colors`}
-          placeholder="+54 9 11 1234-5678"
+          placeholder="55 1234 5678"
         />
         {errors.phone && <p className="text-sushi-primary text-xs mt-1">{errors.phone}</p>}
       </div>

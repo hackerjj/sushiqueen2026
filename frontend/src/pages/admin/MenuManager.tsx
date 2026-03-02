@@ -164,7 +164,7 @@ const MenuManager: React.FC = () => {
                   <td className="px-5 py-3">
                     <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">{item.category}</span>
                   </td>
-                  <td className="px-5 py-3 font-medium text-gray-900">${item.price.toLocaleString('es-AR')}</td>
+                  <td className="px-5 py-3 font-medium text-gray-900">${item.price.toLocaleString('en-US')}</td>
                   <td className="px-5 py-3">
                     <button onClick={() => toggleAvailability(item)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${item.available ? 'bg-green-500' : 'bg-gray-300'}`}>
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.available ? 'translate-x-6' : 'translate-x-1'}`} />
