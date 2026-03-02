@@ -3,10 +3,10 @@ FROM php:8.2-cli-alpine
 # Install system dependencies
 RUN apk add --no-cache \
     git curl libpng-dev oniguruma-dev libxml2-dev \
-    zip unzip openssl-dev
+    zip unzip openssl-dev linux-headers $PHPIZE_DEPS
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
 # Install MongoDB extension
 RUN pecl install mongodb && docker-php-ext-enable mongodb
@@ -15,16 +15,37 @@ RUN pecl install mongodb && docker-php-ext-enable mongodb
 RUN pecl install redis && docker-php-ext-enable redis
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/backend
 
+# Copy all application files
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction || true
+# Create required directories
+RUN mkdir -p storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
 
-RUN chown -R www-data:www-data /var/www/backend/storage /var/www/backend/bootstrap/cache || true
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --ignore-platform-reqs
+
+# Generate autoload
+RUN composer dump-autoload --optimize
+
+# Set permissions
+RUN chmod -R 775 storage bootstrap/cache
+
+# Create a minimal .env if not present (for artisan commands during build)
+RUN if [ ! -f .env ]; then \
+    echo "APP_NAME=SushiQueen" > .env && \
+    echo "APP_ENV=production" >> .env && \
+    echo "APP_KEY=base64:$(head -c 32 /dev/urandom | base64)" >> .env && \
+    echo "APP_DEBUG=false" >> .env; \
+    fi
 
 EXPOSE 10000
 
-CMD php artisan serve --host=0.0.0.0 --port=${PORT:-10000}
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]

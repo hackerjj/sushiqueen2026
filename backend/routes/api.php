@@ -29,6 +29,16 @@ Route::get('/metrics', function () {
     ]);
 });
 
+// ─── Health Check ────────────────────────────────────────────────
+
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'service' => 'Sushi Queen API',
+        'timestamp' => now()->toISOString(),
+    ]);
+});
+
 // ─── Public Routes ───────────────────────────────────────────────
 
 Route::prefix('menu')->group(function () {
