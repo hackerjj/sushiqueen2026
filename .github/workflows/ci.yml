@@ -64,7 +64,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        env:
+          COMPOSER_PROCESS_TIMEOUT: 0
+          COMPOSER_NO_INTERACTION: 1
+          COMPOSER_NO_AUDIT: 1
+        run: |
+          mkdir -p bootstrap/cache
+          mkdir -p storage/framework/{sessions,views,cache}
+          mkdir -p storage/logs
+          composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Copy environment file
         working-directory: backend

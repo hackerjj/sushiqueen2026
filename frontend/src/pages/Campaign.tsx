@@ -36,7 +36,7 @@ const Campaign: React.FC = () => {
       <section className="relative min-h-[60vh] flex items-center">
         <div className="absolute inset-0">
           <img
-            src="/images/hero-sushi.jpg"
+            src="/images/hero-sushi.png"
             alt="Sushi Queen Promo"
             className="w-full h-full object-cover"
           />
