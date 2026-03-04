@@ -72,8 +72,8 @@ class OrderController extends Controller
             ];
         }
 
-        $tax = round($subtotal * 0.21, 2); // 21% IVA Argentina
-        $total = round($subtotal + $tax, 2);
+        $tax = 0; // IVA already included in Mexican prices
+        $total = round($subtotal, 2);
 
         $order = Order::create([
             'customer_id' => (string) $customer->_id,
@@ -98,24 +98,21 @@ class OrderController extends Controller
         // Update tier based on total orders
         $this->updateCustomerTier($customer->fresh());
 
-        // Optionally send order to Fudo POS
+        // Always send order to Fudo POS
         $fudoResponse = null;
-        if ($validated['send_to_fudo'] ?? false) {
-            try {
-                $fudoService = new FudoService();
-                $fudoResponse = $fudoService->sendOrderToFudo($order->fresh()->load('customer'));
-                Log::info('OrderController: Order sent to Fudo', [
-                    'order_id' => (string) $order->_id,
-                    'fudo_order_id' => $order->fresh()->fudo_order_id,
-                ]);
-            } catch (\Throwable $e) {
-                Log::error('OrderController: Failed to send order to Fudo', [
-                    'order_id' => (string) $order->_id,
-                    'error' => $e->getMessage(),
-                ]);
-                // Don't fail the order creation — Fudo sync is best-effort
-                $fudoResponse = ['error' => 'Fudo sync failed: ' . $e->getMessage()];
-            }
+        try {
+            $fudoService = new FudoService();
+            $fudoResponse = $fudoService->sendOrderToFudo($order->fresh()->load('customer'));
+            Log::info('OrderController: Order sent to Fudo', [
+                'order_id' => (string) $order->_id,
+                'fudo_order_id' => $order->fresh()->fudo_order_id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('OrderController: Failed to send order to Fudo', [
+                'order_id' => (string) $order->_id,
+                'error' => $e->getMessage(),
+            ]);
+            $fudoResponse = ['error' => 'Fudo sync failed: ' . $e->getMessage()];
         }
 
         return response()->json([
