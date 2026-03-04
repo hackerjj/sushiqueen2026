@@ -39,6 +39,28 @@ Route::get('/health', function () {
     ]);
 });
 
+// Debug endpoint - remove after testing
+Route::get('/debug/db', function () {
+    try {
+        $connection = \Illuminate\Support\Facades\DB::connection('mongodb');
+        $connection->command(['ping' => 1]);
+        $count = \App\Models\MenuItem::count();
+        return response()->json([
+            'mongodb' => 'connected',
+            'menu_items_count' => $count,
+            'database' => config('database.connections.mongodb.database'),
+            'dsn_set' => !empty(config('database.connections.mongodb.dsn')),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'mongodb' => 'error',
+            'message' => $e->getMessage(),
+            'dsn_set' => !empty(config('database.connections.mongodb.dsn')),
+            'database' => config('database.connections.mongodb.database'),
+        ], 500);
+    }
+});
+
 // ─── Public Routes ───────────────────────────────────────────────
 
 Route::prefix('menu')->group(function () {
