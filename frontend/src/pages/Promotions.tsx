@@ -26,7 +26,7 @@ const MOCK_PROMOTIONS: Promotion[] = [
     discount_type: 'fixed',
     discount_value: 215,
     applicable_items: [],
-    image_url: '/images/promo1-Camarones-215.jpg',
+    image_url: '/images/promo-camarones-coco.png',
     starts_at: '2026-01-01T00:00:00Z',
     expires_at: '2026-04-30T23:59:59Z',
     active: true,
