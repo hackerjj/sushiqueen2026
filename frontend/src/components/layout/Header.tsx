@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ onCartOpen }) => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl">🍣</span>
+            <img src="/images/logo.png" alt="Sushi Queen" className="h-10 w-10 object-contain" />
             <span className="font-display text-xl font-bold text-white">
               Sushi <span className="text-sushi-accent">Queen</span>
             </span>
