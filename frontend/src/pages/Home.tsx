@@ -16,8 +16,8 @@ const MOCK_PROMOS = [
   },
   {
     id: '2',
-    title: 'Camarones Coco $215',
-    description: 'Camarones empanizados con coco, incluye yakimeshi, ensalada y kushiage.',
+    title: 'Camarones al Coco $215',
+    description: '5 camarones empanizados con coco, arroz yakimeshi, verduras asadas y kushiage de manchego.',
     image: '/images/promo1-Camarones-215.jpg',
     badge: '$215',
   },
