@@ -61,6 +61,24 @@ Route::get('/debug/db', function () {
     }
 });
 
+// Seed endpoint - remove after use
+Route::get('/debug/seed', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+        $count = \App\Models\MenuItem::count();
+        return response()->json([
+            'status' => 'seeded',
+            'menu_items_count' => $count,
+            'output' => \Illuminate\Support\Facades\Artisan::output(),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
 // ─── Public Routes ───────────────────────────────────────────────
 
 Route::prefix('menu')->group(function () {
