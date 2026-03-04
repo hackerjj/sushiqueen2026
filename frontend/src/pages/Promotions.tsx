@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import PromoSection from '../components/promo/PromoSection';
-import api from '../services/api';
-import type { Promotion, ApiResponse } from '../types';
+import type { Promotion } from '../types';
 
 const MOCK_PROMOTIONS: Promotion[] = [
   {
@@ -57,19 +56,9 @@ const Promotions: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPromotions = async () => {
-      try {
-        const { data } = await api.get<ApiResponse<Promotion[]>>('/promotions', {
-          params: { active: true },
-        });
-        setPromotions(data.data);
-      } catch {
-        setPromotions(MOCK_PROMOTIONS);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPromotions();
+    // Always use local promotions data (has correct images)
+    setPromotions(MOCK_PROMOTIONS);
+    setLoading(false);
   }, []);
 
   return (
