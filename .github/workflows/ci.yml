@@ -72,7 +72,7 @@ jobs:
           mkdir -p bootstrap/cache
           mkdir -p storage/framework/{sessions,views,cache}
           mkdir -p storage/logs
-          composer install --no-interaction --prefer-dist --optimize-autoloader
+          composer install --no-interaction --prefer-dist --optimize-autoloader --ignore-platform-req=ext-mongodb
 
       - name: Copy environment file
         working-directory: backend

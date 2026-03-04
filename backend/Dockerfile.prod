@@ -15,14 +15,18 @@ RUN composer install \
     --no-interaction \
     --no-scripts \
     --no-autoloader \
-    --prefer-dist
+    --prefer-dist \
+    --ignore-platform-req=ext-mongodb \
+    --ignore-platform-req=ext-redis
 
 COPY . .
 
 RUN composer dump-autoload \
     --optimize \
     --no-dev \
-    --classmap-authoritative
+    --classmap-authoritative \
+    --ignore-platform-req=ext-mongodb \
+    --ignore-platform-req=ext-redis
 
 # ─── Stage 2: Production Image ──────────────
 FROM php:8.2-fpm-alpine AS production
