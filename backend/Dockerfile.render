@@ -30,10 +30,7 @@ RUN mkdir -p storage/framework/cache/data \
     bootstrap/cache
 
 # Install dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --ignore-platform-reqs
-
-# Generate autoload
-RUN composer dump-autoload --optimize
+RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs
 
 # Set permissions
 RUN chmod -R 775 storage bootstrap/cache
