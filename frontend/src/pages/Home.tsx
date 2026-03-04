@@ -169,7 +169,7 @@ const Home: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="relative">
             <img
-              src="/images/about-sushi.jpg"
+              src="/images/about-sushi.png"
               alt="Sobre Sushi Queen"
               className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               loading="lazy"

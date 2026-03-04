@@ -46,6 +46,10 @@ RUN if [ ! -f .env ]; then \
     echo "APP_DEBUG=false" >> .env; \
     fi
 
+# Copy start script
+COPY start.sh /var/www/backend/start.sh
+RUN chmod +x /var/www/backend/start.sh
+
 EXPOSE 10000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
+CMD ["/var/www/backend/start.sh"]
