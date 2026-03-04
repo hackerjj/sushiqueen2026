@@ -1,0 +1,87 @@
+═══════════════════════════════════════════════════════════════
+  CONFIGURACIÓN DE FUDO - SUSHI QUEEN
+═══════════════════════════════════════════════════════════════
+
+🌐 DOMINIO: sushiqueen.galt.com.mx
+
+📍 Panel de Fudo: https://app-v2.fu.do/app/#!/admin/external_apps/2
+
+───────────────────────────────────────────────────────────────
+  WEBHOOKS - URLs A CONFIGURAR
+───────────────────────────────────────────────────────────────
+
+Para CADA evento que quieras activar, usa esta URL:
+
+  https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+
+───────────────────────────────────────────────────────────────
+  EVENTOS RECOMENDADOS
+───────────────────────────────────────────────────────────────
+
+✅ OBLIGATORIO:
+   Evento: ORDER-CONFIRMED
+   URL: https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+   
+✅ RECOMENDADO:
+   Evento: ORDER-REJECTED
+   URL: https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+
+⭕ OPCIONAL:
+   Evento: ORDER-READY-TO-DELIVER
+   URL: https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+   
+   Evento: ORDER-DELIVERY-SENT
+   URL: https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+   
+   Evento: ORDER-CLOSED
+   URL: https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+
+───────────────────────────────────────────────────────────────
+  PASOS EN EL PANEL DE FUDO
+───────────────────────────────────────────────────────────────
+
+1. Ir a: https://app-v2.fu.do/app/#!/admin/external_apps/2
+
+2. En "Notificar evento:" seleccionar: ORDER-CONFIRMED
+
+3. En "URL notificación:" pegar:
+   https://sushiqueen.galt.com.mx/webhooks/fudo/order-confirmed
+
+4. Click en el botón "+" (más) para agregar
+
+5. Repetir pasos 2-4 para ORDER-REJECTED (recomendado)
+
+6. Click en "Guardar" (botón naranja)
+
+───────────────────────────────────────────────────────────────
+  VERIFICAR CONFIGURACIÓN ACTUAL
+───────────────────────────────────────────────────────────────
+
+✅ Nombre: directorders
+✅ Usuario asociado: Jair Garcia
+✅ Client Id: MDAwMDI6MDYzOTU2
+✅ Client Secret: xH6rdcTALbNBv3qBoAUyhYFz
+✅ Activar sonido: Sí
+✅ Imprimir Control de Mesa al confirmar: Sí
+
+───────────────────────────────────────────────────────────────
+  NOTA IMPORTANTE
+───────────────────────────────────────────────────────────────
+
+⚠️  La misma URL funciona para TODOS los eventos.
+    El backend detecta automáticamente el tipo de evento.
+
+⚠️  Asegúrate de que el sitio esté desplegado ANTES de 
+    configurar los webhooks en Fudo.
+
+───────────────────────────────────────────────────────────────
+  PROBAR WEBHOOKS
+───────────────────────────────────────────────────────────────
+
+1. Crear una orden de prueba desde el frontend
+2. Confirmar la orden en el panel de Fudo
+3. Verificar en los logs que el webhook llegó:
+   - Revisar: api/storage/logs/laravel.log
+   - Buscar: "WebhookController: Fudo webhook received"
+
+═══════════════════════════════════════════════════════════════
