@@ -9,24 +9,24 @@ const WHATSAPP_URL = 'https://wa.me/5517966419?text=Hola%20Sushi%20Queen!%20Quie
 const MOCK_PROMOS = [
   {
     id: '1',
-    title: '2x1 en Makis Clásicos',
-    description: 'Todos los martes y jueves, lleva 2 makis clásicos por el precio de 1.',
-    image: '/images/promo-1.jpg',
-    badge: '2x1',
-  },
-  {
-    id: '2',
-    title: '15% OFF Primer Pedido',
-    description: 'Regístrate y obtén un 15% de descuento en tu primera orden online.',
-    image: '/images/promo-2.jpg',
+    title: '15% OFF Primera Compra',
+    description: '15% de descuento en tu primer pedido por la web. Código: BIENVENIDO15',
+    image: '/images/menu/Makis Especiales/maki-queen.jpeg',
     badge: '15% OFF',
   },
   {
+    id: '2',
+    title: 'Camarones Coco $215',
+    description: 'Camarones empanizados con coco, incluye yakimeshi, ensalada y kushiage.',
+    image: '/images/Promo1-Camarones-215.jpg',
+    badge: '$215',
+  },
+  {
     id: '3',
-    title: 'Paquete Familiar',
-    description: 'Paquete Eby Furai + Yakimeshi + Ensalada + Kushiage. Ideal para compartir.',
-    image: '/images/sushi-roll-2.jpg',
-    badge: 'PAQUETE',
+    title: '2x1 en Makis',
+    description: 'Lleva 2 makis y paga solo 1. Válido de lunes a miércoles. Código: MAKI2X1',
+    image: '/images/menu/Makis/maki-empanizado-manchego.jpeg',
+    badge: '2x1',
   },
 ];
 

@@ -19,8 +19,8 @@ export function useCart() {
   };
 
   const subtotal = getTotal();
-  const tax = subtotal * 0.16;  // Mexico IVA 16%
-  const total = subtotal + tax;
+  const tax = 0;  // IVA already included in prices
+  const total = subtotal;
   const itemCount = getItemCount();
 
   return {

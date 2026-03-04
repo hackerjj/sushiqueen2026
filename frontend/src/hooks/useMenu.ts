@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
-import type { MenuItem, ApiResponse } from '../types';
+import type { MenuItem } from '../types';
 import { menuData } from '../data/menuData';
 
 export function useMenu(category?: string) {
@@ -12,12 +11,14 @@ export function useMenu(category?: string) {
     try {
       setLoading(true);
       setError(null);
-      const params = category ? { category } : {};
-      const { data } = await api.get<ApiResponse<MenuItem[]>>('/menu', { params });
-      setItems(data.data);
+      // Always use local menuData as primary source (has correct images)
+      // API is used for orders/admin, not for public menu display
+      const filtered = category
+        ? menuData.filter(item => item.category === category)
+        : menuData;
+      setItems(filtered);
     } catch {
-      setError(null); // Don't show error, use fallback data
-      // Use real menu data as fallback
+      setError(null);
       const filtered = category
         ? menuData.filter(item => item.category === category)
         : menuData;
