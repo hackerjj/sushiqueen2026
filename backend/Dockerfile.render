@@ -40,8 +40,13 @@ RUN if [ ! -f .env ]; then \
     echo "APP_NAME=SushiQueen" > .env && \
     echo "APP_ENV=production" >> .env && \
     echo "APP_KEY=base64:$(head -c 32 /dev/urandom | base64)" >> .env && \
-    echo "APP_DEBUG=false" >> .env; \
+    echo "APP_DEBUG=false" >> .env && \
+    echo "DB_CONNECTION=mongodb" >> .env; \
     fi
+
+# Do NOT cache config - let runtime env vars take effect
+RUN php artisan config:clear 2>/dev/null || true
+RUN php artisan cache:clear 2>/dev/null || true
 
 # Copy start script
 COPY start.sh /var/www/backend/start.sh
