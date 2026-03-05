@@ -28,6 +28,7 @@ class Order extends Model
         'prepared_items',
         'cash_register_id',
         'table_id',
+        'guest_count',
         'assigned_to',
         'estimated_time',
     ];
