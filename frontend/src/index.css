@@ -53,8 +53,8 @@
 
 /* Print styles for ticket */
 @media print {
-  body * { visibility: hidden; }
-  .print\\:hidden { display: none !important; }
-  [data-ticket], [data-ticket] * { visibility: visible; }
-  [data-ticket] { position: absolute; left: 0; top: 0; width: 80mm; }
+  body * { visibility: hidden !important; }
+  #ticket-print, #ticket-print * { visibility: visible !important; }
+  #ticket-print { position: fixed; left: 0; top: 0; width: 80mm; background: white; }
+  .print\:hidden { display: none !important; }
 }
