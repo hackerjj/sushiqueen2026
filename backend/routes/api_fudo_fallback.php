@@ -12,26 +12,59 @@ $dataPath = storage_path('app/fudo_data');
 
 // Clientes desde JSON
 Route::get('/admin/customers-json', function () use ($dataPath) {
-    $file = $dataPath . '/clientes.json';
-    if (!file_exists($file)) {
+    $clientesFile = $dataPath . '/clientes.json';
+    $ventasFile = $dataPath . '/ventas.json';
+    
+    if (!file_exists($clientesFile)) {
         return response()->json(['data' => [], 'message' => 'No data'], 404);
     }
     
-    $clientes = json_decode(file_get_contents($file), true);
+    $clientes = json_decode(file_get_contents($clientesFile), true);
+    
+    // Cargar ventas para calcular totales
+    $ventas = [];
+    if (file_exists($ventasFile)) {
+        $ventas = json_decode(file_get_contents($ventasFile), true);
+    }
+    
+    // Calcular totales por cliente (usando nombre como clave)
+    $totalesPorCliente = [];
+    foreach ($ventas as $venta) {
+        // El nombre del cliente está en Unnamed: 10
+        $clienteNombre = $venta['Unnamed: 10'] ?? null;
+        $total = floatval($venta['Unnamed: 12'] ?? 0);
+        $fecha = $venta['01/01/2021 00:00'] ?? null;
+        
+        if ($clienteNombre && $total > 0) {
+            $nombreNormalizado = strtoupper(trim($clienteNombre));
+            if (!isset($totalesPorCliente[$nombreNormalizado])) {
+                $totalesPorCliente[$nombreNormalizado] = ['ordenes' => 0, 'gastado' => 0, 'ultima_orden' => null];
+            }
+            $totalesPorCliente[$nombreNormalizado]['ordenes']++;
+            $totalesPorCliente[$nombreNormalizado]['gastado'] += $total;
+            if ($fecha && (!$totalesPorCliente[$nombreNormalizado]['ultima_orden'] || $fecha > $totalesPorCliente[$nombreNormalizado]['ultima_orden'])) {
+                $totalesPorCliente[$nombreNormalizado]['ultima_orden'] = $fecha;
+            }
+        }
+    }
     
     // Transformar a formato esperado
-    $transformed = array_map(function($c) {
+    $transformed = array_map(function($c) use ($totalesPorCliente) {
+        $nombre = strtoupper(trim($c['Nombre'] ?? ''));
+        $totales = $totalesPorCliente[$nombre] ?? ['ordenes' => 0, 'gastado' => 0, 'ultima_orden' => null];
+        
         return [
-            '_id' => $c['id'] ?? uniqid(),
-            'name' => $c['nombre'] ?? $c['name'] ?? 'Cliente',
-            'phone' => $c['telefono'] ?? $c['phone'] ?? '',
-            'email' => $c['email'] ?? '',
-            'address' => $c['direccion'] ?? $c['address'] ?? '',
+            '_id' => strval($c['Id'] ?? uniqid()),
+            'name' => $c['Nombre'] ?? 'Cliente',
+            'phone' => $c['Teléfono'] ?? '',
+            'email' => $c['Email'] ?? '',
+            'address' => trim(($c['Calle'] ?? '') . ' ' . ($c['Número'] ?? '') . ' ' . ($c['Ciudad'] ?? '')),
             'source' => 'fudo',
             'tier' => 'regular',
-            'total_orders' => $c['total_ordenes'] ?? 0,
-            'total_spent' => $c['total_gastado'] ?? 0,
-            'created_at' => $c['fecha_registro'] ?? now(),
+            'total_orders' => $totales['ordenes'],
+            'total_spent' => $totales['gastado'],
+            'last_order_at' => $totales['ultima_orden'],
+            'created_at' => now(),
         ];
     }, $clientes);
     
@@ -48,24 +81,56 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
     $ventas = json_decode(file_get_contents($file), true);
     
     // Transformar a formato esperado
-    $transformed = array_map(function($v) {
-        return [
-            '_id' => $v['id'] ?? uniqid(),
-            'order_number' => $v['numero_orden'] ?? $v['id'] ?? rand(1000, 9999),
-            'customer_id' => $v['cliente_id'] ?? null,
-            'items' => json_decode($v['productos'] ?? '[]', true) ?: [
-                ['name' => $v['producto'] ?? 'Producto', 'quantity' => $v['cantidad'] ?? 1, 'price' => $v['precio'] ?? 0]
+    $transformed = [];
+    foreach ($ventas as $v) {
+        // Skip header rows
+        if (!isset($v['Desde']) || !is_numeric($v['Desde'])) {
+            continue;
+        }
+        
+        $orderNumber = $v['Desde'] ?? rand(1000, 9999);
+        $fecha = $v['01/01/2021 00:00'] ?? null;
+        $clienteNombre = $v['Unnamed: 10'] ?? 'Cliente';
+        $metodoPago = $v['Unnamed: 11'] ?? 'Efectivo';
+        $total = floatval($v['Unnamed: 12'] ?? 0);
+        $tipo = $v['Unnamed: 14'] ?? 'Local';
+        
+        // Skip if no total
+        if ($total <= 0) {
+            continue;
+        }
+        
+        // Map tipo to our format
+        $orderType = 'dine_in';
+        if (stripos($tipo, 'delivery') !== false || stripos($tipo, 'domicilio') !== false) {
+            $orderType = 'delivery';
+        } elseif (stripos($tipo, 'llevar') !== false || stripos($tipo, 'mostrador') !== false) {
+            $orderType = 'takeout';
+        }
+        
+        // Map payment method
+        $paymentMethod = 'cash';
+        if (stripos($metodoPago, 'tarj') !== false || stripos($metodoPago, 'card') !== false) {
+            $paymentMethod = 'card';
+        }
+        
+        $transformed[] = [
+            '_id' => uniqid(),
+            'order_number' => $orderNumber,
+            'customer_name' => $clienteNombre,
+            'items' => [
+                ['name' => 'Venta', 'quantity' => 1, 'price' => $total]
             ],
-            'subtotal' => $v['subtotal'] ?? $v['total'] ?? 0,
-            'tax' => $v['impuesto'] ?? 0,
-            'total' => $v['total'] ?? 0,
-            'status' => $v['estado'] ?? 'delivered',
+            'subtotal' => $total,
+            'tax' => 0,
+            'total' => $total,
+            'status' => 'delivered',
             'source' => 'fudo',
-            'type' => $v['tipo'] ?? 'dine_in',
-            'payment_method' => $v['metodo_pago'] ?? 'cash',
-            'created_at' => $v['fecha'] ?? $v['created_at'] ?? now(),
+            'type' => $orderType,
+            'payment_method' => $paymentMethod,
+            'created_at' => $fecha ?? now(),
         ];
-    }, $ventas);
+    }
     
     // Filtros
     if ($status = $request->input('status')) {
@@ -202,23 +267,25 @@ Route::get('/admin/customers-json/{id}', function ($id) use ($dataPath) {
     $clientes = json_decode(file_get_contents($clientesFile), true);
     $ventas = json_decode(file_get_contents($ventasFile), true);
     
-    // Find customer
+    // Find customer by ID
     $customer = null;
+    $customerNombre = null;
     foreach ($clientes as $c) {
-        if (($c['id'] ?? '') === $id || ($c['_id'] ?? '') === $id) {
+        if (strval($c['Id'] ?? '') === strval($id)) {
+            $customerNombre = strtoupper(trim($c['Nombre'] ?? ''));
             $customer = [
-                '_id' => $c['id'] ?? $id,
-                'name' => $c['nombre'] ?? $c['name'] ?? 'Cliente',
-                'phone' => $c['telefono'] ?? $c['phone'] ?? '',
-                'email' => $c['email'] ?? '',
-                'address' => $c['direccion'] ?? $c['address'] ?? '',
+                '_id' => strval($c['Id']),
+                'name' => $c['Nombre'] ?? 'Cliente',
+                'phone' => $c['Teléfono'] ?? '',
+                'email' => $c['Email'] ?? '',
+                'address' => trim(($c['Calle'] ?? '') . ' ' . ($c['Número'] ?? '') . ' ' . ($c['Ciudad'] ?? '')),
                 'source' => 'fudo',
                 'tier' => 'regular',
-                'total_orders' => $c['total_ordenes'] ?? 0,
-                'total_spent' => $c['total_gastado'] ?? 0,
+                'total_orders' => 0,
+                'total_spent' => 0,
                 'preferences' => [],
-                'ai_profile' => ['avg_order_value' => $c['total_ordenes'] > 0 ? ($c['total_gastado'] / $c['total_ordenes']) : 0],
-                'last_order_at' => $c['ultima_orden'] ?? null,
+                'ai_profile' => ['avg_order_value' => 0],
+                'last_order_at' => null,
             ];
             break;
         }
@@ -228,28 +295,70 @@ Route::get('/admin/customers-json/{id}', function ($id) use ($dataPath) {
         return response()->json(['error' => 'Customer not found'], 404);
     }
     
-    // Find customer orders
+    // Find customer orders by name
     $orders = [];
+    $totalOrders = 0;
+    $totalSpent = 0;
+    
     foreach ($ventas as $v) {
-        if (($v['cliente_id'] ?? '') === $id) {
+        // Skip header rows
+        if (!isset($v['Desde']) || !is_numeric($v['Desde'])) {
+            continue;
+        }
+        
+        $ventaNombre = strtoupper(trim($v['Unnamed: 10'] ?? ''));
+        $total = floatval($v['Unnamed: 12'] ?? 0);
+        
+        if ($ventaNombre === $customerNombre && $total > 0) {
+            $orderNumber = $v['Desde'] ?? rand(1000, 9999);
+            $fecha = $v['01/01/2021 00:00'] ?? null;
+            $metodoPago = $v['Unnamed: 11'] ?? 'Efectivo';
+            $tipo = $v['Unnamed: 14'] ?? 'Local';
+            
+            // Map tipo to our format
+            $orderType = 'dine_in';
+            if (stripos($tipo, 'delivery') !== false || stripos($tipo, 'domicilio') !== false) {
+                $orderType = 'delivery';
+            } elseif (stripos($tipo, 'llevar') !== false || stripos($tipo, 'mostrador') !== false) {
+                $orderType = 'takeout';
+            }
+            
+            // Map payment method
+            $paymentMethod = 'cash';
+            if (stripos($metodoPago, 'tarj') !== false || stripos($metodoPago, 'card') !== false) {
+                $paymentMethod = 'card';
+            }
+            
             $orders[] = [
-                '_id' => $v['id'] ?? uniqid(),
-                'order_number' => $v['numero_orden'] ?? $v['id'] ?? rand(1000, 9999),
+                '_id' => uniqid(),
+                'order_number' => $orderNumber,
                 'customer_id' => $id,
-                'items' => json_decode($v['productos'] ?? '[]', true) ?: [
-                    ['name' => $v['producto'] ?? 'Producto', 'quantity' => $v['cantidad'] ?? 1, 'price' => $v['precio'] ?? 0]
+                'items' => [
+                    ['name' => 'Venta', 'quantity' => 1, 'price' => $total]
                 ],
-                'subtotal' => $v['subtotal'] ?? $v['total'] ?? 0,
-                'tax' => $v['impuesto'] ?? 0,
-                'total' => $v['total'] ?? 0,
-                'status' => $v['estado'] ?? 'delivered',
+                'subtotal' => $total,
+                'tax' => 0,
+                'total' => $total,
+                'status' => 'delivered',
                 'source' => 'fudo',
-                'type' => $v['tipo'] ?? 'dine_in',
-                'payment_method' => $v['metodo_pago'] ?? 'cash',
-                'created_at' => $v['fecha'] ?? $v['created_at'] ?? now(),
+                'type' => $orderType,
+                'payment_method' => $paymentMethod,
+                'created_at' => $fecha ?? now(),
             ];
+            
+            $totalOrders++;
+            $totalSpent += $total;
+            
+            if ($fecha && (!$customer['last_order_at'] || $fecha > $customer['last_order_at'])) {
+                $customer['last_order_at'] = $fecha;
+            }
         }
     }
+    
+    // Update customer totals
+    $customer['total_orders'] = $totalOrders;
+    $customer['total_spent'] = $totalSpent;
+    $customer['ai_profile']['avg_order_value'] = $totalOrders > 0 ? ($totalSpent / $totalOrders) : 0;
     
     return response()->json([
         'data' => array_merge($customer, ['orders' => $orders])
