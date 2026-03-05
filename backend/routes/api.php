@@ -40,6 +40,13 @@ Route::get('/health', function () {
     ]);
 });
 
+// ─── Seed Endpoint (for initial data population) ─────────────────
+
+Route::get('/seed', function () {
+    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+    return response()->json(['message' => 'Database seeded successfully']);
+});
+
 // ─── Public Routes ───────────────────────────────────────────────
 
 Route::prefix('menu')->group(function () {
