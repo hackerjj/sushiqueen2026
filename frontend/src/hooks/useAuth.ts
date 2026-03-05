@@ -12,8 +12,8 @@ export function useAuth() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await api.post<ApiResponse<AuthResponse>>('/auth/login', credentials);
-      setAuth(data.data.token, data.data.user);
+      const { data } = await api.post('/auth/login', credentials);
+      setAuth(data.access_token, data.user);
       return true;
     } catch {
       setError('Credenciales inválidas');
