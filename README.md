@@ -1,253 +1,250 @@
-# 🍣 Sushi Queen - Plataforma Digital para Restaurante
+# Sushi Queen + MealLi POS
 
-Plataforma web completa para restaurante de sushi con sistema de pedidos online, panel de administración, integraciones con POS (Fudo), WhatsApp Business, AI para personalización y marketing digital.
+Full-stack restaurant platform combining a public-facing ordering website (Sushi Queen) with an integrated POS management system (MealLi). Built to replace third-party POS services like Fudo with a fully owned, internal solution.
 
-## 📋 Tabla de Contenidos
+## Table of Contents
 
-- [Arquitectura](#arquitectura)
-- [Stack Tecnológico](#stack-tecnológico)
-- [Funcionalidades](#funcionalidades)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Instalación y Despliegue](#instalación-y-despliegue)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Public Website](#public-website)
+- [MealLi POS Admin](#mealli-pos-admin)
 - [API Endpoints](#api-endpoints)
-- [Integraciones](#integraciones)
-- [Monitoreo](#monitoreo)
-- [Licencia](#licencia)
+- [Project Structure](#project-structure)
+- [Deployment](#deployment)
+- [Integrations](#integrations)
 
-## 🏗️ Arquitectura
+## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│               CLOUDFLARE CDN                      │
-│          (DNS, SSL, Analytics, WAF)               │
-└────────────────────┬─────────────────────────────┘
-                     │
-┌────────────────────▼─────────────────────────────┐
-│  ┌──────────────┐    ┌─────────────────────────┐ │
-│  │ React + Vite │    │   Laravel API (PHP 8.2) │ │
-│  │  (Frontend)  │    │      (Backend)          │ │
-│  │              │    │                         │ │
-│  │ - Sitio Web  │    │ - REST API              │ │
-│  │ - Admin      │    │ - Fudo POS Integration  │ │
-│  │ - Pedidos    │    │ - WhatsApp Webhooks     │ │
-│  └──────────────┘    │ - AI Service (Gemini)   │ │
-│                      │ - Prometheus Metrics     │ │
-│                      └─────────────────────────┘ │
-│  ┌──────────────┐    ┌─────────────────────────┐ │
-│  │   MongoDB    │    │        Redis            │ │
-│  │  (Database)  │    │   (Cache + Sessions)    │ │
-│  └──────────────┘    └─────────────────────────┘ │
-│  ┌──────────────┐    ┌─────────────────────────┐ │
-│  │  Prometheus  │    │       Grafana           │ │
-│  │  (Métricas)  │    │    (Dashboards)         │ │
-│  └──────────────┘    └─────────────────────────┘ │
-└──────────────────────────────────────────────────┘
-        │                       │
-        ▼                       ▼
-  ┌───────────┐         ┌──────────────┐
-  │ Fudo POS  │         │  WhatsApp    │
-  │   API     │         │  Business    │
-  └───────────┘         └──────────────┘
+                    CLOUDFLARE CDN
+              (DNS, SSL, Analytics, WAF)
+                        |
+    ┌───────────────────┴───────────────────┐
+    |                                       |
+    v                                       v
+┌─────────────────┐          ┌──────────────────────────┐
+| React Frontend  |          |   Laravel API Backend    |
+| (Hostinger)     |          |   (Render.com)           |
+|                 |          |                          |
+| Public Site:    |  ──API── |  POSService              |
+|  - Home         |          |  InventoryService        |
+|  - Menu         |          |  WhatsAppService         |
+|  - Orders       |          |  AIService (Gemini)      |
+|  - Promotions   |          |  AnalyticsService        |
+|                 |          |                          |
+| MealLi Admin:   |          |  Controllers:            |
+|  - Dashboard    |          |   OrderController        |
+|  - POS          |          |   MenuController         |
+|  - Kitchen KDS  |          |   CashRegisterController |
+|  - Cash Register|          |   InventoryController    |
+|  - Menu Manager |          |   RecipeController       |
+|  - Inventory    |          |   TableController        |
+|  - Recipes      |          |   SupplierController     |
+|  - Tables       |          |   CustomerController     |
+|  - Suppliers    |          |   PromotionController    |
+|  - Customers    |          |   InsightsController     |
+|  - Promotions   |          |                          |
+|  - Insights     |          └──────────┬───────────────┘
+|  - Reports      |                     |
+└─────────────────┘          ┌──────────┴───────────────┐
+                             |          |               |
+                          MongoDB    Redis    WhatsApp API
+                          (Atlas)   (Cache)   (Business)
 ```
 
-## 🛠️ Stack Tecnológico
+## Tech Stack
 
-| Componente | Tecnología |
-|-----------|-----------|
+| Layer | Technology |
+|-------|-----------|
 | Frontend | React 18, TypeScript, Vite, TailwindCSS, Zustand |
 | Backend | PHP 8.2, Laravel 11, JWT Auth |
-| Base de Datos | MongoDB 7 |
+| Database | MongoDB 7 (Atlas) |
 | Cache | Redis 7 |
-| POS | Fudo API (OAuth2) |
-| Mensajería | WhatsApp Business API |
-| AI | Google AI Studio (Gemini 2.0 Flash) |
-| Monitoreo | Prometheus + Grafana |
-| CDN/Security | Cloudflare |
-| CI/CD | GitHub Actions |
-| IaC | Terraform (AWS ready) |
-| Contenedores | Docker + Docker Compose |
+| AI | Google Gemini 2.0 Flash |
+| Messaging | WhatsApp Business Cloud API |
+| Monitoring | Prometheus + Grafana |
+| CDN | Cloudflare |
+| CI/CD | GitHub Actions + Hostinger Git Deploy |
+| Frontend Hosting | Hostinger (static files) |
+| Backend Hosting | Render.com |
 
-## ✨ Funcionalidades
+## Public Website
 
-### Sitio Web Público
-- Landing page profesional con branding
-- Menú interactivo con categorías, precios e imágenes
-- Sistema de pedidos online con carrito de compras
-- Promociones semanales activas
-- Responsive design (mobile-first)
-- SEO optimizado
+Accessible at `sushiqueen.galt.com.mx`
 
-### Sistema de Pedidos
-- Carrito con modificadores (extras, sin ingrediente)
-- Checkout con datos del cliente
-- Integración directa con Fudo POS
-- Confirmación en tiempo real via webhook
-- Historial de pedidos por cliente
-- Pedidos desde WhatsApp
+- Landing page with restaurant branding
+- Interactive menu with categories, prices, images
+- Online ordering with cart and checkout
+- Weekly promotions
+- Mobile-first responsive design
+- WhatsApp ordering integration
+- AI-powered chatbot
 
-### Panel de Administración
-- Dashboard con KPIs (ventas día/semana/mes)
-- Gestión de menú (CRUD productos)
-- Gestión de promociones con expiración
-- CRM de clientes (nuevo, recurrente, VIP)
-- Insights de la página (visitas, conversiones)
-- Gestión de órdenes en tiempo real
+## MealLi POS Admin
 
-### Integraciones
-- **Fudo POS**: Sincronización de menú, envío de órdenes, webhooks
-- **WhatsApp Business**: Menú interactivo, pedidos, notificaciones, chatbot
-- **AI (Gemini)**: Recomendaciones personalizadas, análisis predictivo
-- **Marketing**: Facebook Pixel, Google Analytics, GTM
-- **Cloudflare**: Analytics, WAF, SSL
+Accessible at `sushiqueen.galt.com.mx/admin`
 
-## 📁 Estructura del Proyecto
+MealLi (Meal + Li) is the internal POS engine that replaced the Fudo POS dependency. All restaurant operations are managed from this panel.
 
-```
-sushi-queen/
-├── frontend/              # React + Vite + TypeScript
-│   ├── src/
-│   │   ├── components/    # Componentes reutilizables
-│   │   ├── pages/         # Páginas (Home, Menu, Order, Admin)
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── services/      # API client + analytics
-│   │   ├── store/         # Zustand stores
-│   │   └── types/         # TypeScript types
-│   └── public/images/     # Imágenes del restaurante
-├── backend/               # Laravel 11 API
-│   ├── app/
-│   │   ├── Http/Controllers/  # API Controllers
-│   │   ├── Models/            # MongoDB Models
-│   │   └── Services/          # Business Logic
-│   ├── routes/api.php     # API Routes
-│   └── config/            # App configuration
-├── monitoring/            # Prometheus + Grafana
-├── nginx/                 # Nginx configs
-├── terraform/             # AWS IaC
-├── deploy/                # Deployment scripts
-├── docker-compose.yml     # Development
-├── docker-compose.prod.yml # Production
-├── render.yaml            # Render.com deployment
-└── .github/workflows/     # CI/CD
-```
+### Modules
 
-## 🚀 Instalación y Despliegue
+| Module | Route | Description |
+|--------|-------|-------------|
+| Dashboard | `/admin` | KPIs: sales today/week/month, orders, customers, low stock alerts |
+| Point of Sale | `/admin/pos` | Counter sales interface with quick product selection, cart, payment |
+| Kitchen Display | `/admin/kitchen` | Real-time order queue for kitchen staff, item-level preparation tracking, timers |
+| Cash Register | `/admin/cash-register` | Open/close register, movements, reconciliation, payment breakdown |
+| Orders | `/admin/orders` | Order management with status transitions, filters, detail view |
+| Menu Manager | `/admin/menu` | CRUD for menu items, categories, modifiers, availability toggle |
+| Inventory | `/admin/inventory` | Ingredient management, stock levels, movements (purchase, waste, count) |
+| Recipes | `/admin/recipes` | Link menu items to ingredients, auto cost calculation, margin analysis |
+| Tables | `/admin/tables` | Table map with status (free/occupied/reserved/billing), zone management |
+| Suppliers | `/admin/suppliers` | Supplier directory with contact info |
+| Customers | `/admin/customers` | CRM with tiers (new/regular/gold/vip), order history, AI profiles |
+| Promotions | `/admin/promotions` | Discount management (percentage/fixed/bogo), codes, usage tracking |
+| Insights | `/admin/insights` | Visits, conversions, revenue by source, customer acquisition |
+| Reports | `/admin/reports` | Sales reports by period, top products, revenue by channel, CSV export |
 
-### Opción 1: Render.com (Recomendado - Sin Docker local)
+### Key POS Features
 
-1. Fork o conecta el repo en [Render.com](https://render.com)
-2. Crear nuevo Blueprint → seleccionar repo
-3. Render lee `render.yaml` y despliega automáticamente
-4. Configurar variables de entorno (MongoDB Atlas, Redis)
+- Sequential order numbering per day (#001, #002...)
+- Automatic inventory deduction on sale (via recipes)
+- Payments auto-registered in open cash register
+- Kitchen display with 10-second polling and audio alerts
+- Table assignment from POS interface
+- WhatsApp notifications on order status changes
+- AI-powered customer recommendations (Gemini)
 
-Ver [DEPLOY_RENDER.md](DEPLOY_RENDER.md) para guía completa.
+### Login
 
-### Opción 2: Docker Compose (Local)
+- Email: `admin@sushiqueen.com`
+- Password: `admin123`
 
-```bash
-# Clonar repositorio
-git clone https://github.com/hackerjj/sushiqueen2026.git
-cd sushiqueen2026
+## API Endpoints
 
-# Configurar variables de entorno
-cp backend/.env.example backend/.env
-
-# Levantar servicios
-docker-compose up -d
-
-# Instalar dependencias
-docker exec -it sushi-queen-php composer install
-docker exec -it sushi-queen-php php artisan key:generate
-docker exec -it sushi-queen-php php artisan jwt:secret
-
-# Seed de datos iniciales
-docker exec -it sushi-queen-php php artisan migrate --seed
-```
-
-Servicios disponibles:
-| Servicio | URL |
-|---------|-----|
-| Frontend | http://localhost |
-| API Backend | http://localhost/api |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3001 |
-| MongoDB | localhost:27017 |
-| Redis | localhost:6379 |
-
-### Opción 3: Serverless (AWS Lambda)
-
-Ver [DEPLOY_SERVERLESS.md](DEPLOY_SERVERLESS.md) para guía con AWS Lambda + Vercel.
-
-## 📡 API Endpoints
-
-### Públicos
-| Método | Endpoint | Descripción |
+### Public
+| Method | Endpoint | Description |
 |--------|---------|-------------|
-| GET | `/api/menu` | Listar menú completo |
-| GET | `/api/menu/:category` | Menú por categoría |
-| GET | `/api/promotions` | Promociones activas |
-| POST | `/api/orders` | Crear orden |
-| GET | `/api/orders/:id/status` | Estado de orden |
+| GET | `/api/menu` | Full menu |
+| GET | `/api/menu/:category` | Menu by category |
+| GET | `/api/promotions` | Active promotions |
+| POST | `/api/orders` | Create order |
+| GET | `/api/orders/:id/status` | Order status |
 | GET | `/api/health` | Health check |
 
-### Admin (JWT requerido)
-| Método | Endpoint | Descripción |
+### Admin (JWT required)
+| Method | Endpoint | Description |
 |--------|---------|-------------|
-| POST | `/api/auth/login` | Login admin |
-| GET | `/api/admin/dashboard` | KPIs dashboard |
-| CRUD | `/api/admin/menu` | Gestión menú |
-| CRUD | `/api/admin/promotions` | Gestión promociones |
-| GET | `/api/admin/orders` | Listar órdenes |
-| PATCH | `/api/admin/orders/:id` | Actualizar orden |
-| GET | `/api/admin/customers` | Listar clientes |
+| POST | `/api/auth/login` | Admin login |
+| GET | `/api/admin/dashboard` | Dashboard KPIs + low stock alerts |
+| CRUD | `/api/admin/menu` | Menu management |
+| CRUD | `/api/admin/promotions` | Promotions management |
+| GET/PATCH | `/api/admin/orders` | Order management |
+| POST | `/api/admin/orders/:id/pay` | Register payment |
+| GET | `/api/admin/orders/kitchen` | Kitchen display orders |
+| PATCH | `/api/admin/orders/:id/items/:idx/prepared` | Mark item prepared |
+| GET/PUT | `/api/admin/customers` | Customer CRM |
+| GET/POST | `/api/admin/cash-register/*` | Cash register operations |
+| CRUD | `/api/admin/ingredients` | Ingredient management |
+| POST | `/api/admin/inventory/movement` | Stock movements |
+| CRUD | `/api/admin/recipes` | Recipe management |
+| GET | `/api/admin/recipes/:id/cost` | Cost breakdown |
+| CRUD | `/api/admin/suppliers` | Supplier management |
+| CRUD | `/api/admin/tables` | Table management |
 | GET | `/api/admin/insights` | Analytics |
 
 ### Webhooks
-| Método | Endpoint | Descripción |
+| Method | Endpoint | Description |
 |--------|---------|-------------|
-| POST | `/webhooks/fudo/order-confirmed` | Confirmación Fudo |
-| POST | `/webhooks/whatsapp` | Mensajes WhatsApp |
+| GET/POST | `/webhooks/whatsapp` | WhatsApp Business messages |
 
-## 🔗 Integraciones
+## Project Structure
 
-### Fudo POS
-- OAuth2 authentication
-- Sincronización automática de menú
-- Envío de órdenes al POS
-- Webhook ORDER-CONFIRMED
+```
+sushi-queen/
+├── frontend/                    # React SPA
+│   └── src/
+│       ├── pages/
+│       │   ├── Home.tsx         # Landing page
+│       │   ├── Menu.tsx         # Public menu
+│       │   ├── Order.tsx        # Checkout
+│       │   └── admin/           # MealLi POS
+│       │       ├── Dashboard.tsx
+│       │       ├── POS.tsx
+│       │       ├── Kitchen.tsx
+│       │       ├── CashRegister.tsx
+│       │       ├── Orders.tsx
+│       │       ├── MenuManager.tsx
+│       │       ├── Inventory.tsx
+│       │       ├── Recipes.tsx
+│       │       ├── Tables.tsx
+│       │       ├── Suppliers.tsx
+│       │       ├── Customers.tsx
+│       │       ├── Promotions.tsx
+│       │       ├── Insights.tsx
+│       │       └── Reports.tsx
+│       ├── components/
+│       ├── hooks/
+│       ├── services/
+│       ├── store/
+│       └── types/
+├── backend/                     # Laravel API
+│   └── app/
+│       ├── Http/Controllers/
+│       │   ├── OrderController.php
+│       │   ├── CashRegisterController.php
+│       │   ├── InventoryController.php
+│       │   ├── RecipeController.php
+│       │   ├── TableController.php
+│       │   ├── SupplierController.php
+│       │   └── ...
+│       ├── Models/
+│       │   ├── Order.php
+│       │   ├── CashRegister.php
+│       │   ├── Ingredient.php
+│       │   ├── Recipe.php
+│       │   ├── Table.php
+│       │   ├── Supplier.php
+│       │   └── ...
+│       └── Services/
+│           ├── POSService.php
+│           ├── InventoryService.php
+│           ├── WhatsAppService.php
+│           └── AIService.php
+├── monitoring/                  # Prometheus + Grafana
+├── deploy/                      # Deployment scripts
+└── .kiro/specs/mealli-pos/      # MealLi POS specifications
+```
 
-### WhatsApp Business
-- Menú interactivo por chat
-- Flujo de pedidos completo
-- Notificaciones de estado
-- Chatbot con AI
+## Deployment
 
-### Google AI (Gemini 2.0 Flash)
-- Recomendaciones personalizadas
-- Análisis de preferencias
-- Automatización de respuestas
-- Análisis predictivo de demanda
+### Frontend (Hostinger)
+- Git deploy from branch `deploy-sushiqueen`
+- Auto-deploy via GitHub webhook
+- Static files served with `.htaccess` SPA routing
 
-## 📊 Monitoreo
+### Backend (Render.com)
+- Auto-deploy from `main` branch
+- PHP 8.2 + MongoDB extension
+- Environment variables for all credentials
 
-- **Prometheus**: Métricas del backend (órdenes/min, latencia, errores)
-- **Grafana**: Dashboard visual con KPIs en tiempo real
-- **Cloudflare**: Analytics de tráfico y seguridad
-- **Exporters**: MongoDB, Redis, Nginx
+### Database (MongoDB Atlas)
+- Cloud-hosted MongoDB cluster
+- Database: `sushi_queen`
 
-## 🔒 Seguridad
+## Integrations
 
-- HTTPS obligatorio (Cloudflare SSL)
-- JWT para autenticación admin
-- Rate limiting en API
-- CORS configurado
-- Variables de entorno para credenciales
-- WAF de Cloudflare
+| Service | Purpose |
+|---------|---------|
+| WhatsApp Business | Interactive menu, order flow, status notifications, AI chatbot |
+| Google Gemini | Personalized recommendations, preference analysis, automated responses |
+| Facebook Pixel | Conversion tracking, ad campaigns |
+| Google Analytics | Traffic analytics, GTM |
+| Cloudflare | CDN, SSL, WAF, analytics |
+| Prometheus + Grafana | Backend metrics and dashboards |
 
-## 👤 Autor
+## Author
 
-**Jair Garcia** - Director del proyecto
-- GitHub: [@hackerjj](https://github.com/hackerjj)
+Jair Garcia - [@hackerjj](https://github.com/hackerjj)
 
-## 📄 Licencia
-
-Proyecto propietario - Todos los derechos reservados © 2026 Sushi Queen
+License: Proprietary - All rights reserved 2026
