@@ -260,15 +260,11 @@ const Tables: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño *</label>
-                <select value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value as TableSize })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <select value={form.size} onChange={(e) => { const s = e.target.value as TableSize; const cap = s === 'small' ? 2 : s === 'medium' ? 4 : 6; setForm({ ...form, size: s, capacity: cap }); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   <option value="small">Chica (2 personas)</option>
                   <option value="medium">Mediana (4 personas)</option>
                   <option value="large">Grande (6+ personas)</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
-                <input type="number" min={1} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 1 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg">Cancelar</button>

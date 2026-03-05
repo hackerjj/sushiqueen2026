@@ -34,8 +34,10 @@ const POS: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [lastOrder, setLastOrder] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [tables, setTables] = useState<{ _id: string; number: number; zone: string; status: string; capacity: number }[]>([]);
+  const [tables, setTables] = useState<{ _id: string; number: number; zone: string; status: string; capacity: number; shape?: string; size?: string; position_x?: number; position_y?: number }[]>([]);
   const [selectedTable, setSelectedTable] = useState('');
+  const [selectedTableNum, setSelectedTableNum] = useState(0);
+  const [activeZone, setActiveZone] = useState('Salón');
   const [customerMatches, setCustomerMatches] = useState<CustomerMatch[]>([]);
   const [showMatches, setShowMatches] = useState(false);
   const [customerHistory, setCustomerHistory] = useState<string[]>([]);
@@ -63,24 +65,39 @@ const POS: React.FC = () => {
       const { data } = await api.get('/admin/tables');
       const list = Array.isArray(data.data) ? data.data : [];
       setTables(list.length > 0 ? list : [
-        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6 },
-        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4 },
-        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4 },
+        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
+        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 1, position_y: 1 },
+        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6, shape: 'square', size: 'medium', position_x: 2, position_y: 1 },
+        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'large', position_x: 2, position_y: 0 },
+        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 0 },
+        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
       ]);
     } catch {
       setTables([
-        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6 },
-        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4 },
-        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4 },
-        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4 },
+        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
+        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 1, position_y: 1 },
+        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6, shape: 'square', size: 'medium', position_x: 2, position_y: 1 },
+        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'large', position_x: 2, position_y: 0 },
+        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 0 },
+        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
       ]);
     }
   };
+
+  const selectTable = (t: typeof tables[0]) => {
+    setSelectedTable(t._id);
+    setSelectedTableNum(t.number);
+    setOrderType('dine_in');
+  };
+
+  const clearTable = () => {
+    setSelectedTable('');
+    setSelectedTableNum(0);
+    setCart([]);
+  };
+
+  const zones = [...new Set(tables.map(t => t.zone))];
+  const zoneTables = tables.filter(t => t.zone === activeZone);
 
   useEffect(() => { if (isAuthenticated) { fetchMenu(); fetchTables(); } }, [fetchMenu, isAuthenticated]);
 
@@ -210,9 +227,31 @@ const POS: React.FC = () => {
           ))}
         </div>
 
-        {/* Products */}
+        {/* Products or Table Grid */}
         <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
+          {orderType === 'dine_in' && !selectedTable ? (
+            /* Table selection grid */
+            <div>
+              <div className="flex gap-2 mb-4">
+                {zones.map(z => (
+                  <button key={z} onClick={() => setActiveZone(z)} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeZone === z ? 'bg-white shadow text-gray-900 border' : 'bg-gray-200 text-gray-600'}`}>{z}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                {zoneTables.map(t => {
+                  const colors: Record<string, string> = { free: 'bg-green-400 text-white', occupied: 'bg-red-400 text-white', reserved: 'bg-blue-400 text-white', billing: 'bg-yellow-400 text-white' };
+                  const sz = t.size === 'large' ? 'w-28 h-28 text-3xl' : t.size === 'small' ? 'w-16 h-16 text-lg' : 'w-20 h-20 text-2xl';
+                  const shape = t.shape === 'circle' ? 'rounded-full' : 'rounded-xl';
+                  return (
+                    <button key={t._id} onClick={() => selectTable(t)} className={`${sz} ${colors[t.status]} ${shape} font-bold flex items-center justify-center hover:scale-105 transition-transform shadow-md`}>
+                      {t.number}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-4">Selecciona una mesa para tomar la comanda</p>
+            </div>
+          ) : loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sushi-primary" /></div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -234,8 +273,13 @@ const POS: React.FC = () => {
 
       {/* Right: Cart */}
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Orden Actual</h2>
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">
+            {orderType === 'dine_in' && selectedTableNum > 0 ? `Mesa ${selectedTableNum}` : 'Orden Actual'}
+          </h2>
+          {orderType === 'dine_in' && selectedTable && (
+            <button onClick={clearTable} className="text-xs text-gray-500 hover:text-red-500">✕ Cambiar</button>
+          )}
         </div>
 
         {/* Order type */}
@@ -251,12 +295,6 @@ const POS: React.FC = () => {
         <div className="px-4 py-2 border-b border-gray-100 space-y-2">
           {orderType === 'dine_in' && (
             <>
-              <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs">
-                <option value="">Seleccionar mesa...</option>
-                {tables.filter(t => t.status === 'free').map(t => (
-                  <option key={t._id} value={t._id}>Mesa {t.number} — {t.zone} ({t.capacity} lugares)</option>
-                ))}
-              </select>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500 whitespace-nowrap">Personas:</label>
                 <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-xs">
