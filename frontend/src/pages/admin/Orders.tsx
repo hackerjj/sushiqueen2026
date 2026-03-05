@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import type { Order, OrderStatus, ApiResponse } from '../../types';
+import type { Order, OrderStatus } from '../../types';
 
 const statusOptions: { value: OrderStatus; label: string }[] = [
   { value: 'pending', label: 'Pendiente' },
