@@ -50,3 +50,11 @@
     overflow: hidden;
   }
 }
+
+/* Print styles for ticket */
+@media print {
+  body * { visibility: hidden; }
+  .print\\:hidden { display: none !important; }
+  [data-ticket], [data-ticket] * { visibility: visible; }
+  [data-ticket] { position: absolute; left: 0; top: 0; width: 80mm; }
+}
