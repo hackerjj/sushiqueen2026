@@ -2,10 +2,20 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
+import { menuData } from '../../data/menuData';
 import type { MenuItem, ApiResponse, CartItem, PaymentMethod, OrderType } from '../../types';
 
 interface POSCartItem extends CartItem {
   line_total: number;
+}
+
+interface CustomerMatch {
+  _id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  total_orders?: number;
+  last_order?: string;
 }
 
 const POS: React.FC = () => {
@@ -17,13 +27,19 @@ const POS: React.FC = () => {
   const [cart, setCart] = useState<POSCartItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [guestCount, setGuestCount] = useState(2);
   const [orderType, setOrderType] = useState<OrderType>('dine_in');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [submitting, setSubmitting] = useState(false);
   const [lastOrder, setLastOrder] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [tables, setTables] = useState<{ _id: string; number: number; status: string }[]>([]);
+  const [tables, setTables] = useState<{ _id: string; number: number; zone: string; status: string; capacity: number }[]>([]);
   const [selectedTable, setSelectedTable] = useState('');
+  const [customerMatches, setCustomerMatches] = useState<CustomerMatch[]>([]);
+  const [showMatches, setShowMatches] = useState(false);
+  const [customerHistory, setCustomerHistory] = useState<string[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
@@ -34,17 +50,72 @@ const POS: React.FC = () => {
       setLoading(true);
       const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu');
       const list = Array.isArray(data.data) ? data.data : [];
-      setItems(list.filter(i => i.available));
-    } catch { /* ignore */ } finally { setLoading(false); }
+      const available = list.filter(i => i.available);
+      setItems(available.length > 0 ? available : menuData);
+    } catch {
+      // Fallback to local menu data
+      setItems(menuData);
+    } finally { setLoading(false); }
   }, []);
-
-  useEffect(() => { if (isAuthenticated) { fetchMenu(); fetchTables(); } }, [fetchMenu, isAuthenticated]);
 
   const fetchTables = async () => {
     try {
       const { data } = await api.get('/admin/tables');
-      setTables(Array.isArray(data.data) ? data.data : []);
-    } catch { /* ignore */ }
+      const list = Array.isArray(data.data) ? data.data : [];
+      setTables(list.length > 0 ? list : [
+        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6 },
+        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4 },
+        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4 },
+      ]);
+    } catch {
+      setTables([
+        { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6 },
+        { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4 },
+        { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4 },
+        { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4 },
+      ]);
+    }
+  };
+
+  useEffect(() => { if (isAuthenticated) { fetchMenu(); fetchTables(); } }, [fetchMenu, isAuthenticated]);
+
+  // Search customers by phone for autocomplete
+  const searchCustomers = async (phone: string) => {
+    if (phone.length < 3) { setCustomerMatches([]); setShowMatches(false); return; }
+    try {
+      const { data } = await api.get(`/admin/customers?search=${phone}`);
+      const list = Array.isArray(data.data) ? data.data : [];
+      setCustomerMatches(list.slice(0, 5));
+      setShowMatches(list.length > 0);
+    } catch {
+      setCustomerMatches([]);
+      setShowMatches(false);
+    }
+  };
+
+  const selectCustomer = (c: CustomerMatch) => {
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone);
+    if (c.address) setCustomerAddress(c.address);
+    setSelectedCustomerId(c._id);
+    setShowMatches(false);
+    // Fetch customer order history
+    fetchCustomerHistory(c._id);
+  };
+
+  const fetchCustomerHistory = async (customerId: string) => {
+    try {
+      const { data } = await api.get(`/admin/customers/${customerId}`);
+      const customer = data.data || data;
+      setCustomerHistory(customer.top_items || []);
+    } catch {
+      setCustomerHistory([]);
+    }
   };
 
   const categories = [...new Set(items.map(i => i.category))].sort();
@@ -83,29 +154,35 @@ const POS: React.FC = () => {
 
   const total = cart.reduce((sum, c) => sum + c.line_total, 0);
 
+  const canSubmit = () => {
+    if (cart.length === 0 || submitting) return false;
+    if (orderType === 'dine_in') return !!selectedTable;
+    if (orderType === 'takeout') return !!customerName && !!customerPhone;
+    if (orderType === 'delivery') return !!customerName && !!customerPhone && !!customerAddress;
+    return false;
+  };
+
   const submitOrder = async () => {
-    if (cart.length === 0 || !customerName || !customerPhone) return;
+    if (!canSubmit()) return;
     try {
       setSubmitting(true);
-      const { data } = await api.post('/orders', {
-        customer: { name: customerName, phone: customerPhone, address: '' },
-        items: cart.map(c => ({
-          menu_item_id: c.menu_item_id,
-          name: c.name,
-          price: c.price,
-          quantity: c.quantity,
-          modifiers: [],
-        })),
+      await api.post('/orders', {
+        customer: { name: customerName || 'Mesa', phone: customerPhone || '', address: customerAddress },
+        items: cart.map(c => ({ menu_item_id: c.menu_item_id, name: c.name, price: c.price, quantity: c.quantity, modifiers: [] })),
         source: 'pos',
         type: orderType,
         payment_method: paymentMethod,
         table_id: selectedTable || undefined,
+        guest_count: orderType === 'dine_in' ? guestCount : undefined,
       });
-      setLastOrder(data.data?.order_number || 'OK');
+      setLastOrder('OK');
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
-      setTimeout(() => setLastOrder(null), 5000);
+      setCustomerAddress('');
+      setCustomerHistory([]);
+      setSelectedCustomerId('');
+      setTimeout(() => setLastOrder(null), 4000);
     } catch { /* ignore */ } finally { setSubmitting(false); }
   };
 
@@ -130,11 +207,7 @@ const POS: React.FC = () => {
               {c}
             </button>
           ))}
-          <input
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar..."
-            className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-40 focus:ring-2 focus:ring-sushi-primary outline-none"
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-40 focus:ring-2 focus:ring-sushi-primary outline-none" />
         </div>
 
         {/* Products */}
@@ -144,11 +217,7 @@ const POS: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map(item => (
-                <button
-                  key={item._id}
-                  onClick={() => addToCart(item)}
-                  className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-left hover:shadow-md hover:border-sushi-primary/30 transition-all active:scale-95"
-                >
+                <button key={item._id} onClick={() => addToCart(item)} className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 text-left hover:shadow-md hover:border-sushi-primary/30 transition-all active:scale-95">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} className="w-full h-20 object-cover rounded-lg mb-2" />
                   ) : (
@@ -178,20 +247,52 @@ const POS: React.FC = () => {
           ))}
         </div>
 
+        {/* Context fields based on order type */}
+        <div className="px-4 py-2 border-b border-gray-100 space-y-2">
+          {orderType === 'dine_in' && (
+            <>
+              <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs">
+                <option value="">Seleccionar mesa...</option>
+                {tables.filter(t => t.status === 'free').map(t => (
+                  <option key={t._id} value={t._id}>Mesa {t.number} — {t.zone} ({t.capacity} lugares)</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500 whitespace-nowrap">Personas:</label>
+                <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-xs">
+                  {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre (opcional)" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" />
+            </>
+          )}
+          {orderType === 'takeout' && (
+            <>
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs" />
+              <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Teléfono *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs" />
+            </>
+          )}
+          {orderType === 'delivery' && (
+            <div className="relative">
+              <input value={customerPhone} onChange={(e) => { setCustomerPhone(e.target.value); searchCustomers(e.target.value); }} placeholder="Teléfono *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs" />
+              {showMatches && customerMatches.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                  {customerMatches.map(c => (
+                    <button key={c._id} onClick={() => selectCustomer(c)} className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                      <p className="text-xs font-medium">{c.name}</p>
+                      <p className="text-xs text-gray-500">{c.phone}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs mt-2" />
+              <input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Dirección *" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs mt-2" />
+            </div>
+          )}
+        </div>
+
         {/* Cart items */}
         <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
-
-        {/* Table selector for dine_in */}
-        {orderType === 'dine_in' && tables.length > 0 && (
-          <div className="px-4 py-2 border-b border-gray-100">
-            <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs">
-              <option value="">Sin mesa asignada</option>
-              {tables.filter(t => t.status === 'free').map(t => (
-                <option key={t._id} value={t._id}>Mesa {t.number}</option>
-              ))}
-            </select>
-          </div>
-        )}
           {cart.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-8">Agrega productos</p>
           ) : cart.map(item => (
@@ -210,10 +311,18 @@ const POS: React.FC = () => {
           ))}
         </div>
 
-        {/* Customer + Payment */}
-        <div className="border-t border-gray-100 px-4 py-3 space-y-2">
-          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre cliente" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs" />
-          <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Teléfono" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs" />
+        {/* Customer history (delivery) */}
+        {orderType === 'delivery' && selectedCustomerId && customerHistory.length > 0 && (
+          <div className="border-t border-gray-100 px-4 py-2 bg-blue-50">
+            <p className="text-xs font-semibold text-blue-700 mb-1">Pedidos anteriores</p>
+            {customerHistory.slice(0, 5).map((item, i) => (
+              <p key={i} className="text-xs text-blue-600">• {item}</p>
+            ))}
+          </div>
+        )}
+
+        {/* Payment */}
+        <div className="border-t border-gray-100 px-4 py-2">
           <div className="flex gap-2">
             {(['cash', 'card', 'transfer'] as PaymentMethod[]).map(m => (
               <button key={m} onClick={() => setPaymentMethod(m)} className={`flex-1 py-1.5 rounded-lg text-xs font-medium ${paymentMethod === m ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
@@ -229,16 +338,12 @@ const POS: React.FC = () => {
             <span className="text-sm text-gray-600">Total</span>
             <span className="text-2xl font-bold text-gray-900">{fmt(total)}</span>
           </div>
-          <button
-            onClick={submitOrder}
-            disabled={submitting || cart.length === 0 || !customerName || !customerPhone}
-            className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors text-sm"
-          >
+          <button onClick={submitOrder} disabled={!canSubmit()} className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors text-sm">
             {submitting ? 'Procesando...' : `Cobrar ${fmt(total)}`}
           </button>
           {lastOrder && (
             <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-center">
-              <p className="text-green-700 text-sm font-medium">Orden {lastOrder} creada</p>
+              <p className="text-green-700 text-sm font-medium">Orden creada ✓</p>
             </div>
           )}
         </div>
