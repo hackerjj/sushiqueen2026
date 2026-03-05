@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import type { LoginCredentials, AuthResponse, ApiResponse } from '../types';
+import type { LoginCredentials } from '../types';
 
 export function useAuth() {
   const { token, user, setAuth, logout: storeLogout, isAuthenticated } = useAuthStore();
