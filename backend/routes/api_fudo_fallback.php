@@ -164,22 +164,42 @@ Route::get('/admin/menu-json', function () use ($dataPath) {
     
     $productos = json_decode(file_get_contents($file), true);
     
-    // Agrupar productos únicos por nombre
+    // Agrupar productos únicos por nombre (solo activos)
     $unique = [];
     foreach ($productos as $p) {
-        $nombre = $p['nombre'] ?? $p['name'] ?? 'Producto';
-        if (!isset($unique[$nombre])) {
-            $unique[$nombre] = [
-                '_id' => $p['id'] ?? uniqid(),
-                'name' => $nombre,
-                'description' => $p['descripcion'] ?? '',
-                'price' => $p['precio'] ?? 0,
-                'category' => $p['categoria'] ?? 'General',
-                'available' => true,
-                'image_url' => $p['imagen'] ?? '',
-                'modifiers' => [],
-            ];
+        // Skip if not active
+        if (($p['Activo'] ?? 'No') !== 'Si') {
+            continue;
         }
+        
+        $nombre = $p['Nombre'] ?? '';
+        if (!$nombre || isset($unique[$nombre])) {
+            continue;
+        }
+        
+        $tieneModificadores = ($p['Contiene modificadores'] ?? 'No') === 'Si';
+        
+        $unique[$nombre] = [
+            '_id' => strval($p['ID'] ?? uniqid()),
+            'name' => $nombre,
+            'description' => $p['Descripción'] ?? '',
+            'price' => floatval($p['Precio'] ?? 0),
+            'cost' => floatval($p['Costo'] ?? 0),
+            'category' => $p['Categoría'] ?? 'General',
+            'subcategory' => $p['Subcategoría'] ?? '',
+            'code' => $p['Código'] ?? '',
+            'available' => true,
+            'image_url' => '',
+            'stock' => $p['Stock'] ?? null,
+            'stock_control' => ($p['Control de Stock'] ?? 'No') === 'Si',
+            'has_modifiers' => $tieneModificadores,
+            'modifiers' => $tieneModificadores ? [] : null,
+            'allow_sell_alone' => ($p['Permitir vender solo'] ?? 'Si') === 'Si',
+            'favorite' => ($p['Favorito'] ?? 'No') === 'Si',
+            'supplier' => $p['Proveedor'] ?? '',
+            'margin' => floatval($p['Margen'] ?? 0),
+            'position' => intval($p['Posición'] ?? 0),
+        ];
     }
     
     return response()->json(['data' => array_values($unique)]);

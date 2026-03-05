@@ -25,6 +25,17 @@ export interface MenuItem {
   recipe_id?: string;
   created_at: string;
   updated_at: string;
+  // Fudo specific fields
+  subcategory?: string;
+  code?: string;
+  stock?: number | null;
+  stock_control?: boolean;
+  has_modifiers?: boolean;
+  allow_sell_alone?: boolean;
+  favorite?: boolean;
+  supplier?: string;
+  margin?: number;
+  position?: number;
 }
 
 // --- Cart ---
