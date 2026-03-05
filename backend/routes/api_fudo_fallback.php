@@ -80,7 +80,7 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
     
     $ventas = json_decode(file_get_contents($file), true);
     
-    // Transformar a formato esperado
+    // Transformar a formato esperado con campos reales de Fudo
     $transformed = [];
     foreach ($ventas as $v) {
         // Skip header rows
@@ -88,60 +88,63 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
             continue;
         }
         
-        $orderNumber = $v['Desde'] ?? rand(1000, 9999);
+        $id = $v['Desde'];
         $fecha = $v['01/01/2021 00:00'] ?? null;
-        $clienteNombre = $v['Unnamed: 10'] ?? 'Cliente';
-        $metodoPago = $v['Unnamed: 11'] ?? 'Efectivo';
+        $creacion = $v['Unnamed: 2'] ?? null;
+        $cerrada = $v['Unnamed: 3'] ?? null;
+        $cliente = $v['Unnamed: 6'] ?? null;
         $total = floatval($v['Unnamed: 12'] ?? 0);
-        $tipo = $v['Unnamed: 14'] ?? 'Local';
+        $tipoVenta = $v['Unnamed: 14'] ?? 'Local';
+        $metodoPago = $v['Unnamed: 11'] ?? 'Efectivo';
         
         // Skip if no total
         if ($total <= 0) {
             continue;
         }
         
-        // Map tipo to our format
-        $orderType = 'dine_in';
-        if (stripos($tipo, 'delivery') !== false || stripos($tipo, 'domicilio') !== false) {
-            $orderType = 'delivery';
-        } elseif (stripos($tipo, 'llevar') !== false || stripos($tipo, 'mostrador') !== false) {
-            $orderType = 'takeout';
-        }
-        
-        // Map payment method
-        $paymentMethod = 'cash';
-        if (stripos($metodoPago, 'tarj') !== false || stripos($metodoPago, 'card') !== false) {
-            $paymentMethod = 'card';
+        // Calcular tiempo de entrega en minutos
+        $tiempoEntrega = null;
+        if ($creacion && $cerrada) {
+            try {
+                $tCreacion = new \DateTime($creacion);
+                $tCerrada = new \DateTime($cerrada);
+                $diff = $tCerrada->getTimestamp() - $tCreacion->getTimestamp();
+                if ($diff > 0 && $diff < 86400) { // menos de 24h
+                    $tiempoEntrega = round($diff / 60);
+                }
+            } catch (\Exception $e) {}
         }
         
         $transformed[] = [
-            '_id' => uniqid(),
-            'order_number' => $orderNumber,
-            'customer_name' => $clienteNombre,
+            '_id' => strval($id),
+            'order_number' => $id,
+            'created_at' => $creacion ?? $fecha,
+            'closed_at' => $cerrada,
+            'delivery_time_min' => $tiempoEntrega,
+            'customer_name' => $cliente,
+            'type' => $tipoVenta,
+            'total' => $total,
+            'payment_method' => $metodoPago,
+            'source' => 'fudo',
+            'status' => 'delivered',
             'items' => [
                 ['name' => 'Venta', 'quantity' => 1, 'price' => $total]
             ],
-            'subtotal' => $total,
-            'tax' => 0,
-            'total' => $total,
-            'status' => 'delivered',
-            'source' => 'fudo',
-            'type' => $orderType,
-            'payment_method' => $paymentMethod,
-            'created_at' => $fecha ?? now(),
         ];
     }
     
-    // Filtros
-    if ($status = $request->input('status')) {
-        $transformed = array_filter($transformed, fn($o) => $o['status'] === $status);
-    }
+    // Ordenar por fecha de creación descendente (más recientes primero)
+    usort($transformed, function($a, $b) {
+        return strcmp($b['created_at'] ?? '', $a['created_at'] ?? '');
+    });
     
-    // Paginación simple
-    $page = $request->input('page', 1);
-    $perPage = $request->input('per_page', 20);
+    // Paginación
+    $page = intval($request->input('page', 1));
+    $perPage = intval($request->input('per_page', 50));
+    if ($perPage > 400) $perPage = 400;
+    
+    $totalCount = count($transformed);
     $offset = ($page - 1) * $perPage;
-    
     $paginated = array_slice($transformed, $offset, $perPage);
     
     return response()->json([
@@ -149,8 +152,8 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
         'meta' => [
             'current_page' => $page,
             'per_page' => $perPage,
-            'total' => count($transformed),
-            'last_page' => ceil(count($transformed) / $perPage),
+            'total' => $totalCount,
+            'last_page' => ceil($totalCount / $perPage),
         ]
     ]);
 });

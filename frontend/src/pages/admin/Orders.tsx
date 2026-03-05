@@ -3,242 +3,203 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import type { Order, OrderStatus } from '../../types';
 
-const statusOptions: { value: OrderStatus; label: string }[] = [
-  { value: 'pending', label: 'Pendiente' },
-  { value: 'confirmed', label: 'Confirmada' },
-  { value: 'preparing', label: 'Preparando' },
-  { value: 'ready', label: 'Lista' },
-  { value: 'delivering', label: 'En camino' },
-  { value: 'delivered', label: 'Entregada' },
-  { value: 'cancelled', label: 'Cancelada' },
-];
+interface Venta {
+  _id: string;
+  order_number: number;
+  created_at: string;
+  closed_at: string | null;
+  delivery_time_min: number | null;
+  customer_name: string | null;
+  type: string;
+  total: number;
+  payment_method: string;
+  source: string;
+  status: string;
+}
 
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
-  preparing: 'bg-purple-100 text-purple-800 border-purple-200',
-  ready: 'bg-green-100 text-green-800 border-green-200',
-  delivering: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  delivered: 'bg-gray-100 text-gray-600 border-gray-200',
-  cancelled: 'bg-red-100 text-red-800 border-red-200',
-};
+type SortField = 'created_at' | 'order_number';
+type SortDir = 'asc' | 'desc';
 
 const Orders: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [ventas, setVentas] = useState<Venta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterSource, setFilterSource] = useState('');
-  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
-  });
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [totalVentas, setTotalVentas] = useState(0);
+  const [perPage, setPerPage] = useState(50);
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchVentas = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, string | number> = { page, per_page: 20 };
-      if (filterStatus) params.status = filterStatus;
-      if (filterSource) params.source = filterSource;
-      if (dateFrom) params.from = dateFrom;
-      if (dateTo) params.to = dateTo;
+      const params: Record<string, string | number> = { page, per_page: perPage };
       
-      // Try fallback endpoint first (JSON data from Fudo)
       try {
         const { data } = await api.get('/admin/orders-json', { params });
-        const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-        setOrders(list);
-        const meta = (data as any).meta || (data as any);
-        setTotalPages(meta.last_page || 1);
-        setTotalOrders(meta.total || list.length);
-        return;
+        const list = Array.isArray(data.data) ? data.data : [];
+        setVentas(list);
+        const meta = data.meta;
+        if (meta) {
+          setTotalPages(meta.last_page || 1);
+          setTotalVentas(meta.total || list.length);
+        } else {
+          setTotalVentas(list.length);
+        }
       } catch {
-        // If fallback fails, try MongoDB endpoint
         const { data } = await api.get('/admin/orders', { params });
-        const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-        setOrders(list);
-        const meta = (data as any).meta || (data as any);
-        setTotalPages(meta.last_page || 1);
-        setTotalOrders(meta.total || list.length);
+        const list = Array.isArray(data.data) ? data.data : [];
+        setVentas(list);
+        setTotalVentas(list.length);
       }
-    } catch {
-      // Final fallback: try to load from localStorage POS orders
-      try {
-        const saved = localStorage.getItem('pos_completed_orders');
-        if (saved) { const list = JSON.parse(saved); setOrders(list); setTotalOrders(list.length); }
-      } catch { /* ignore */ }
-    } finally { setLoading(false); }
-  }, [page, filterStatus, filterSource, dateFrom, dateTo]);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, [page, perPage]);
 
-  useEffect(() => { if (isAuthenticated) fetchOrders(); }, [fetchOrders, isAuthenticated]);
+  useEffect(() => { if (isAuthenticated) fetchVentas(); }, [fetchVentas, isAuthenticated]);
 
-  const updateStatus = async (orderId: string, status: OrderStatus) => {
-    try {
-      await api.patch(`/admin/orders/${orderId}`, { status });
-      setOrders((prev) => prev.map((o) => o._id === orderId ? { ...o, status } : o));
-      if (detailOrder?._id === orderId) setDetailOrder({ ...detailOrder, status });
-    } catch { /* ignore */ }
+  // Client-side sorting
+  const sorted = [...ventas].sort((a, b) => {
+    if (sortField === 'created_at') {
+      const da = a.created_at || '';
+      const db = b.created_at || '';
+      return sortDir === 'desc' ? db.localeCompare(da) : da.localeCompare(db);
+    }
+    if (sortField === 'order_number') {
+      return sortDir === 'desc' ? b.order_number - a.order_number : a.order_number - b.order_number;
+    }
+    return 0;
+  });
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
   };
 
-  const formatCurrency = (n: number | undefined | null) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const SortIcon = ({ field }: { field: SortField }) => (
+    <span className="ml-1 inline-block">
+      {sortField === field ? (sortDir === 'desc' ? '↓' : '↑') : '↕'}
+    </span>
+  );
+
+  const formatDate = (d: string | null) => {
+    if (!d) return '—';
+    try {
+      return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch { return d; }
+  };
+
+  const formatTime = (min: number | null) => {
+    if (min === null || min === undefined) return '—';
+    if (min < 60) return `${min} min`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${h}h ${m}m`;
+  };
+
+  const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
 
   return (
     <AdminLayout title="Gestión de Ventas">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
-          <option value="">Todos los estados</option>
-          {statusOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-        <select value={filterSource} onChange={(e) => { setFilterSource(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
-          <option value="">Todas las fuentes</option>
-          <option value="web">Web</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="facebook">Facebook</option>
-          <option value="pos">POS</option>
-        </select>
-        <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" placeholder="Desde" />
-        <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" placeholder="Hasta" />
-        <button onClick={fetchOrders} className="text-sushi-primary hover:text-red-700 text-sm font-medium flex items-center gap-1">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-500">Mostrar:</label>
+          <select
+            value={perPage}
+            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none"
+          >
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={400}>400</option>
+          </select>
+        </div>
+        <button onClick={fetchVentas} className="text-sushi-primary hover:text-red-700 text-sm font-medium flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           Actualizar
         </button>
-        <span className="text-sm text-gray-500 ml-auto">{totalOrders} órdenes</span>
+        <span className="text-sm text-gray-500 ml-auto">{totalVentas.toLocaleString()} ventas totales</span>
       </div>
 
       {/* Table */}
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sushi-primary" /></div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-100">
-                <th className="px-5 py-3 font-medium">ID</th>
-                <th className="px-5 py-3 font-medium">Items</th>
-                <th className="px-5 py-3 font-medium">Total</th>
-                <th className="px-5 py-3 font-medium">Estado</th>
-                <th className="px-5 py-3 font-medium">Fuente</th>
-                <th className="px-5 py-3 font-medium">Fecha</th>
-                <th className="px-5 py-3 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-5 py-3 font-mono text-xs text-gray-600">{order.order_number || order._id.slice(-6).toUpperCase()}</td>
-                  <td className="px-5 py-3 text-gray-700">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</td>
-                  <td className="px-5 py-3 font-medium text-gray-900">{formatCurrency(order.total)}</td>
-                  <td className="px-5 py-3">
-                    <select
-                      value={order.status}
-                      onChange={(e) => updateStatus(order._id, e.target.value as OrderStatus)}
-                      className={`px-2 py-1 rounded-lg text-xs font-medium border ${statusColors[order.status] || ''} cursor-pointer outline-none`}
-                    >
-                      {statusOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="capitalize text-gray-600">{order.source}</span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-500">{new Date(order.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="px-5 py-3">
-                    <button onClick={() => setDetailOrder(order)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">Ver detalle</button>
-                  </td>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto max-h-[calc(100vh-260px)] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10 border-b border-gray-200">
+                <tr className="text-left text-gray-500">
+                  <th className="px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none" onClick={() => toggleSort('order_number')}>
+                    ID <SortIcon field="order_number" />
+                  </th>
+                  <th className="px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none" onClick={() => toggleSort('created_at')}>
+                    Fecha Creación <SortIcon field="created_at" />
+                  </th>
+                  <th className="px-4 py-3 font-medium">Tiempo Entrega</th>
+                  <th className="px-4 py-3 font-medium">Cliente</th>
+                  <th className="px-4 py-3 font-medium">Tipo de Venta</th>
+                  <th className="px-4 py-3 font-medium text-right">Total</th>
                 </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No hay órdenes</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sorted.map((v) => (
+                  <tr key={v._id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-mono text-xs text-gray-600">{v.order_number}</td>
+                    <td className="px-4 py-2.5 text-gray-700 text-xs">{formatDate(v.created_at)}</td>
+                    <td className="px-4 py-2.5">
+                      {v.delivery_time_min !== null ? (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          v.delivery_time_min <= 30 ? 'bg-green-100 text-green-700' :
+                          v.delivery_time_min <= 60 ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {formatTime(v.delivery_time_min)}
+                        </span>
+                      ) : <span className="text-gray-400 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-900 text-xs">{v.customer_name || <span className="text-gray-400">Sin cliente</span>}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        v.type === 'Delivery' ? 'bg-indigo-100 text-indigo-700' :
+                        v.type === 'Local' ? 'bg-green-100 text-green-700' :
+                        v.type === 'Mostrador' ? 'bg-blue-100 text-blue-700' :
+                        v.type?.includes('Efectivo') ? 'bg-orange-100 text-orange-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {v.type || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900 text-right">{fmt(v.total)}</td>
+                  </tr>
+                ))}
+                {sorted.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No hay ventas</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Anterior</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Anterior</button>
           <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Siguiente</button>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {detailOrder && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Orden {detailOrder.order_number || '#' + detailOrder._id.slice(-6).toUpperCase()}</h3>
-              <button onClick={() => setDetailOrder(null)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[detailOrder.status]}`}>
-                  {statusOptions.find((s) => s.value === detailOrder.status)?.label}
-                </span>
-                <span className="text-sm text-gray-500 capitalize">{detailOrder.source}</span>
-                <span className="text-sm text-gray-400 ml-auto">{new Date(detailOrder.created_at).toLocaleString('es-MX')}</span>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Items</h4>
-                <div className="space-y-2">
-                  {detailOrder.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-gray-700">{item.quantity}x {item.name}</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100 pt-3 space-y-1">
-                <div className="flex justify-between text-sm"><span className="text-gray-500">Subtotal</span><span>{formatCurrency(detailOrder.subtotal)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-gray-500">IVA</span><span>{formatCurrency(detailOrder.tax)}</span></div>
-                <div className="flex justify-between text-sm font-bold"><span>Total</span><span>{formatCurrency(detailOrder.total)}</span></div>
-              </div>
-
-              {detailOrder.notes && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Notas</h4>
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">{detailOrder.notes}</p>
-                </div>
-              )}
-
-              {detailOrder.delivery_address && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Dirección</h4>
-                  <p className="text-sm text-gray-600">{detailOrder.delivery_address}</p>
-                </div>
-              )}
-
-              <div className="pt-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cambiar estado</label>
-                <select
-                  value={detailOrder.status}
-                  onChange={(e) => updateStatus(detailOrder._id, e.target.value as OrderStatus)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none"
-                >
-                  {statusOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Siguiente</button>
         </div>
       )}
     </AdminLayout>
