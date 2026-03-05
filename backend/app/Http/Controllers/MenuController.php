@@ -58,7 +58,6 @@ class MenuController extends Controller
             'modifiers' => 'nullable|array',
             'available' => 'boolean',
             'sort_order' => 'integer',
-            'fudo_id' => 'nullable|string',
         ]);
 
         $validated['available'] = $validated['available'] ?? true;
@@ -88,7 +87,6 @@ class MenuController extends Controller
             'modifiers' => 'nullable|array',
             'available' => 'boolean',
             'sort_order' => 'integer',
-            'fudo_id' => 'nullable|string',
         ]);
 
         $item->update($validated);

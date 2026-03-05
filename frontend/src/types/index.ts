@@ -1,5 +1,5 @@
 // ============================================
-// Sushi Queen - TypeScript Interfaces
+// MealLi POS - TypeScript Interfaces
 // ============================================
 
 // --- Menu ---
@@ -11,7 +11,6 @@ export interface Modifier {
 
 export interface MenuItem {
   _id: string;
-  fudo_id: string;
   name: string;
   description: string;
   price: number;
@@ -20,6 +19,10 @@ export interface MenuItem {
   modifiers: Modifier[];
   available: boolean;
   sort_order: number;
+  prices?: { default: number; delivery?: number; app?: number };
+  available_hours?: { start?: string; end?: string };
+  cost?: number;
+  recipe_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,10 +50,14 @@ export type OrderStatus =
   | 'confirmed'
   | 'preparing'
   | 'ready'
+  | 'delivering'
   | 'delivered'
   | 'cancelled';
 
-export type OrderSource = 'web' | 'whatsapp' | 'facebook';
+export type OrderSource = 'web' | 'whatsapp' | 'facebook' | 'phone' | 'pos';
+export type OrderType = 'dine_in' | 'takeout' | 'delivery';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'pending';
+export type PaymentStatus = 'pending' | 'paid' | 'refunded';
 
 export interface OrderItem {
   menu_item_id: string;
@@ -58,11 +65,13 @@ export interface OrderItem {
   quantity: number;
   price: number;
   modifiers: string[];
+  notes?: string;
+  line_total?: number;
 }
 
 export interface Order {
   _id: string;
-  fudo_order_id: string;
+  order_number: string;
   customer_id: string;
   items: OrderItem[];
   subtotal: number;
@@ -70,8 +79,17 @@ export interface Order {
   total: number;
   status: OrderStatus;
   source: OrderSource;
+  type: OrderType;
   notes: string;
   delivery_address: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  tip: number;
+  prepared_items: number[];
+  cash_register_id?: string;
+  table_id?: string;
+  assigned_to?: string;
+  estimated_time?: number;
   created_at: string;
   confirmed_at?: string;
 }
@@ -86,11 +104,14 @@ export interface CreateOrderPayload {
   items: CartItem[];
   notes?: string;
   source: OrderSource;
+  type?: OrderType;
+  table_id?: string;
+  payment_method?: PaymentMethod;
 }
 
 // --- Customers ---
 
-export type CustomerTier = 'new' | 'regular' | 'vip';
+export type CustomerTier = 'new' | 'regular' | 'gold' | 'vip';
 export type CustomerSource = 'web' | 'whatsapp' | 'facebook';
 
 export interface AIProfile {
@@ -136,6 +157,41 @@ export interface Promotion {
   code: string;
   usage_count: number;
   max_usage: number;
+}
+
+// --- Cash Register ---
+
+export type CashMovementType = 'sale' | 'expense' | 'withdrawal' | 'deposit' | 'tip';
+
+export interface CashMovement {
+  type: CashMovementType;
+  amount: number;
+  description: string;
+  order_id?: string;
+  payment_method: PaymentMethod;
+  created_at: string;
+}
+
+export interface CashRegister {
+  _id: string;
+  name: string;
+  opened_by: string;
+  opened_at: string;
+  closed_at?: string;
+  initial_amount: number;
+  expected_amount: number;
+  actual_amount?: number;
+  status: 'open' | 'closed';
+  movements: CashMovement[];
+  summary: {
+    total_sales: number;
+    total_cash: number;
+    total_card: number;
+    total_transfer: number;
+    total_tips: number;
+    total_expenses: number;
+    total_withdrawals: number;
+  };
 }
 
 // --- Dashboard / Insights ---

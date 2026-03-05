@@ -2,29 +2,30 @@
 
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CashRegisterController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\InsightsController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TableController;
+use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\PrometheusMetrics;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes - Sushi Queen
+| API Routes - MealLi POS (formerly Sushi Queen + Fudo)
 |--------------------------------------------------------------------------
-|
-| Public and admin API endpoints.
-|
 */
 
-// ─── Prometheus Metrics Endpoint ──────────────────────────────────
+// ─── Prometheus Metrics ──────────────────────────────────────────
 
 Route::get('/metrics', function () {
-    $metrics = PrometheusMetrics::renderMetrics();
-
-    return response($metrics, 200, [
+    return response(PrometheusMetrics::renderMetrics(), 200, [
         'Content-Type' => 'text/plain; version=0.0.4; charset=utf-8',
     ]);
 });
@@ -34,49 +35,9 @@ Route::get('/metrics', function () {
 Route::get('/health', function () {
     return response()->json([
         'status' => 'ok',
-        'service' => 'Sushi Queen API',
+        'service' => 'MealLi POS API',
         'timestamp' => now()->toISOString(),
     ]);
-});
-
-// Debug endpoint - remove after testing
-Route::get('/debug/db', function () {
-    try {
-        $connection = \Illuminate\Support\Facades\DB::connection('mongodb');
-        $connection->command(['ping' => 1]);
-        $count = \App\Models\MenuItem::count();
-        return response()->json([
-            'mongodb' => 'connected',
-            'menu_items_count' => $count,
-            'database' => config('database.connections.mongodb.database'),
-            'dsn_set' => !empty(config('database.connections.mongodb.dsn')),
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'mongodb' => 'error',
-            'message' => $e->getMessage(),
-            'dsn_set' => !empty(config('database.connections.mongodb.dsn')),
-            'database' => config('database.connections.mongodb.database'),
-        ], 500);
-    }
-});
-
-// Seed endpoint - remove after use
-Route::get('/debug/seed', function () {
-    try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        $count = \App\Models\MenuItem::count();
-        return response()->json([
-            'status' => 'seeded',
-            'menu_items_count' => $count,
-            'output' => \Illuminate\Support\Facades\Artisan::output(),
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
 });
 
 // ─── Public Routes ───────────────────────────────────────────────
@@ -91,67 +52,10 @@ Route::get('/promotions', [PromotionController::class, 'active']);
 Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/orders/{id}/status', [OrderController::class, 'status']);
 
-// ─── Fudo Test (temporary - remove after validating) ─────────────
-
-Route::get('/fudo/test-connection', function () {
-    try {
-        $fudoService = new \App\Services\FudoService();
-        $token = $fudoService->authenticate();
-
-        return response()->json([
-            'status' => 'ok',
-            'message' => 'Fudo OAuth2 authentication successful',
-            'token_preview' => substr($token, 0, 20) . '...',
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Fudo authentication failed: ' . $e->getMessage(),
-        ], 500);
-    }
-});
-
-Route::get('/fudo/test-menu', function () {
-    try {
-        $fudoService = new \App\Services\FudoService();
-        $menu = $fudoService->getMenu();
-
-        return response()->json([
-            'status' => 'ok',
-            'items_count' => count($menu),
-            'sample' => array_slice($menu, 0, 3),
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Failed to fetch Fudo menu: ' . $e->getMessage(),
-        ], 500);
-    }
-});
-
-Route::post('/fudo/sync-menu-public', function () {
-    try {
-        $fudoService = new \App\Services\FudoService();
-        $result = $fudoService->syncMenuFromFudo();
-
-        return response()->json([
-            'status' => 'ok',
-            'message' => 'Menu synced from Fudo',
-            'data' => $result,
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Sync failed: ' . $e->getMessage(),
-        ], 500);
-    }
-});
-
 // ─── Auth Routes ─────────────────────────────────────────────────
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
-
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -163,6 +67,7 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
 
+    // Dashboard
     Route::get('/dashboard', [OrderController::class, 'dashboard']);
 
     // Menu CRUD
@@ -177,92 +82,96 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::put('/promotions/{id}', [PromotionController::class, 'update']);
     Route::delete('/promotions/{id}', [PromotionController::class, 'destroy']);
 
-    // Orders
+    // Orders (MealLi POS)
     Route::get('/orders', [OrderController::class, 'index']);
     Route::patch('/orders/{id}', [OrderController::class, 'update']);
+    Route::post('/orders/{id}/pay', [OrderController::class, 'pay']);
+    Route::get('/orders/kitchen', [OrderController::class, 'kitchen']);
+    Route::patch('/orders/{id}/items/{itemIndex}/prepared', [OrderController::class, 'markItemPrepared']);
 
     // Customers
     Route::get('/customers', [CustomerController::class, 'index']);
     Route::get('/customers/{id}', [CustomerController::class, 'show']);
     Route::put('/customers/{id}', [CustomerController::class, 'update']);
-
-    // Leads
     Route::get('/leads', [CustomerController::class, 'leads']);
 
-    // Insights / Analytics (Task 58)
+    // Insights / Analytics
     Route::get('/insights', [InsightsController::class, 'index']);
     Route::post('/insights/track', [InsightsController::class, 'track']);
+
+    // Cash Register (Caja)
+    Route::get('/cash-register/current', [CashRegisterController::class, 'current']);
+    Route::post('/cash-register/open', [CashRegisterController::class, 'open']);
+    Route::post('/cash-register/close', [CashRegisterController::class, 'close']);
+    Route::post('/cash-register/movement', [CashRegisterController::class, 'movement']);
+    Route::get('/cash-register/history', [CashRegisterController::class, 'history']);
+
+    // Inventory
+    Route::get('/ingredients', [InventoryController::class, 'ingredients']);
+    Route::post('/ingredients', [InventoryController::class, 'storeIngredient']);
+    Route::put('/ingredients/{id}', [InventoryController::class, 'updateIngredient']);
+    Route::delete('/ingredients/{id}', [InventoryController::class, 'destroyIngredient']);
+    Route::post('/inventory/movement', [InventoryController::class, 'addMovement']);
+    Route::get('/inventory/movements', [InventoryController::class, 'movements']);
+    Route::get('/inventory/low-stock', [InventoryController::class, 'lowStockAlerts']);
+
+    // Recipes
+    Route::get('/recipes', [RecipeController::class, 'index']);
+    Route::post('/recipes', [RecipeController::class, 'store']);
+    Route::put('/recipes/{id}', [RecipeController::class, 'update']);
+    Route::delete('/recipes/{id}', [RecipeController::class, 'destroy']);
+    Route::get('/recipes/{id}/cost', [RecipeController::class, 'cost']);
+
+    // Suppliers
+    Route::get('/suppliers', [SupplierController::class, 'index']);
+    Route::post('/suppliers', [SupplierController::class, 'store']);
+    Route::put('/suppliers/{id}', [SupplierController::class, 'update']);
+    Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy']);
+
+    // Tables
+    Route::get('/tables', [TableController::class, 'index']);
+    Route::post('/tables', [TableController::class, 'store']);
+    Route::put('/tables/{id}', [TableController::class, 'update']);
+    Route::patch('/tables/{id}/status', [TableController::class, 'updateStatus']);
+    Route::delete('/tables/{id}', [TableController::class, 'destroy']);
 });
 
-// ─── Integration Routes (JWT Protected) ─────────────────────────
-
-Route::prefix('fudo')->middleware(['jwt.auth'])->group(function () {
-    Route::post('/sync-menu', function () {
-        try {
-            $fudoService = new \App\Services\FudoService();
-            $result = $fudoService->syncMenuFromFudo();
-
-            return response()->json([
-                'message' => 'Menu synced from Fudo successfully',
-                'data' => $result,
-            ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'error' => 'Menu sync failed',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    });
-});
+// ─── WhatsApp Integration (JWT Protected) ───────────────────────
 
 Route::prefix('whatsapp')->middleware(['jwt.auth'])->group(function () {
-    // Send a WhatsApp message (admin)
     Route::post('/send', function (\Illuminate\Http\Request $request) {
-        $validated = $request->validate([
-            'to' => 'required|string',
-            'message' => 'required|string',
-        ]);
-
+        $validated = $request->validate(['to' => 'required|string', 'message' => 'required|string']);
         try {
             $whatsapp = new \App\Services\WhatsAppService();
             $result = $whatsapp->sendTextMessage($validated['to'], $validated['message']);
-
-            return response()->json([
-                'message' => 'WhatsApp message sent',
-                'data' => $result,
-            ]);
+            return response()->json(['message' => 'WhatsApp message sent', 'data' => $result]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'error' => 'Failed to send WhatsApp message',
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['error' => 'Failed to send', 'message' => $e->getMessage()], 500);
         }
     });
 
-    // Send interactive menu to a customer (admin)
     Route::post('/send-menu', function (\Illuminate\Http\Request $request) {
-        $validated = $request->validate([
-            'to' => 'required|string',
-        ]);
-
+        $validated = $request->validate(['to' => 'required|string']);
         try {
             $whatsapp = new \App\Services\WhatsAppService();
             $result = $whatsapp->sendInteractiveMenu($validated['to']);
-
-            return response()->json([
-                'message' => 'Interactive menu sent',
-                'data' => $result,
-            ]);
+            return response()->json(['message' => 'Interactive menu sent', 'data' => $result]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'error' => 'Failed to send menu',
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['error' => 'Failed to send menu', 'message' => $e->getMessage()], 500);
         }
     });
 });
+
+// ─── AI Integration (JWT Protected) ─────────────────────────────
 
 Route::prefix('ai')->middleware(['jwt.auth'])->group(function () {
     Route::post('/recommend/{customer_id}', [AIController::class, 'recommend']);
     Route::post('/analyze/{customer_id}', [AIController::class, 'analyzePreferences']);
+});
+
+// ─── Webhooks (Public - verified by service) ────────────────────
+
+Route::prefix('webhooks')->group(function () {
+    Route::get('/whatsapp', [WebhookController::class, 'whatsappVerify']);
+    Route::post('/whatsapp', [WebhookController::class, 'whatsappIncoming']);
 });

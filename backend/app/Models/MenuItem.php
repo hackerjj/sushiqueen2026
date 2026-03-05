@@ -10,7 +10,6 @@ class MenuItem extends Model
     protected $collection = 'menu_items';
 
     protected $fillable = [
-        'fudo_id',
         'name',
         'description',
         'price',
@@ -19,12 +18,19 @@ class MenuItem extends Model
         'modifiers',
         'available',
         'sort_order',
+        'prices',
+        'available_hours',
+        'recipe_id',
+        'cost',
     ];
 
     protected $casts = [
         'price' => 'float',
+        'cost' => 'float',
         'available' => 'boolean',
         'sort_order' => 'integer',
         'modifiers' => 'array',
+        'prices' => 'array',
+        'available_hours' => 'array',
     ];
 }

@@ -10,7 +10,7 @@ class Order extends Model
     protected $collection = 'orders';
 
     protected $fillable = [
-        'fudo_order_id',
+        'order_number',
         'customer_id',
         'items',
         'subtotal',
@@ -21,13 +21,25 @@ class Order extends Model
         'notes',
         'delivery_address',
         'confirmed_at',
+        'type',
+        'payment_method',
+        'payment_status',
+        'tip',
+        'prepared_items',
+        'cash_register_id',
+        'table_id',
+        'assigned_to',
+        'estimated_time',
     ];
 
     protected $casts = [
         'items' => 'array',
+        'prepared_items' => 'array',
         'subtotal' => 'float',
         'tax' => 'float',
         'total' => 'float',
+        'tip' => 'float',
+        'estimated_time' => 'integer',
     ];
 
     public function customer()

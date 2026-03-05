@@ -10,6 +10,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [lowStock, setLowStock] = useState<{ name: string; current_stock: number; min_stock: number; unit: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ const Dashboard: React.FC = () => {
       setKpis(dashRes.data.data);
       const orders = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
       setRecentOrders(orders.slice(0, 5));
+      setLowStock((dashRes.data as any).data?.low_stock_alerts || (dashRes.data as any).low_stock_alerts || []);
     } catch {
       // silently handle
     } finally {
@@ -152,6 +154,21 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Low Stock Alerts */}
+      {lowStock.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-6">
+          <h3 className="font-semibold text-red-800 mb-2">Alertas de Stock Bajo ({lowStock.length})</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {lowStock.map((item: any, i: number) => (
+              <div key={i} className="bg-white rounded-lg px-3 py-2 border border-red-100">
+                <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                <p className="text-xs text-red-600">{item.current_stock} {item.unit} (min: {item.min_stock})</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Orders */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
         <div className="px-5 py-4 border-b border-gray-100">
@@ -173,7 +190,7 @@ const Dashboard: React.FC = () => {
               {recentOrders.map((order) => (
                 <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-5 py-3 font-mono text-xs text-gray-600">
-                    {order._id.slice(-6).toUpperCase()}
+                    {order.order_number || order._id.slice(-6).toUpperCase()}
                   </td>
                   <td className="px-5 py-3 text-gray-700">
                     {order.items.length} item{order.items.length !== 1 ? 's' : ''}

@@ -17,6 +17,14 @@ const AdminOrders = lazy(() => import('./pages/admin/Orders'));
 const Customers = lazy(() => import('./pages/admin/Customers'));
 const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
 const Insights = lazy(() => import('./pages/admin/Insights'));
+const POS = lazy(() => import('./pages/admin/POS'));
+const Kitchen = lazy(() => import('./pages/admin/Kitchen'));
+const CashRegister = lazy(() => import('./pages/admin/CashRegister'));
+const Inventory = lazy(() => import('./pages/admin/Inventory'));
+const Suppliers = lazy(() => import('./pages/admin/Suppliers'));
+const Tables = lazy(() => import('./pages/admin/Tables'));
+const Recipes = lazy(() => import('./pages/admin/Recipes'));
+const Reports = lazy(() => import('./pages/admin/Reports'));
 
 const Loading: React.FC = () => (
   <div className="flex items-center justify-center min-h-screen bg-sushi-bg">
@@ -44,11 +52,19 @@ const App: React.FC = () => {
         {/* Admin Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<Dashboard />} />
+        <Route path="/admin/pos" element={<POS />} />
+        <Route path="/admin/kitchen" element={<Kitchen />} />
+        <Route path="/admin/cash-register" element={<CashRegister />} />
         <Route path="/admin/menu" element={<MenuManager />} />
         <Route path="/admin/orders" element={<AdminOrders />} />
         <Route path="/admin/customers" element={<Customers />} />
         <Route path="/admin/promotions" element={<AdminPromotions />} />
         <Route path="/admin/insights" element={<Insights />} />
+        <Route path="/admin/inventory" element={<Inventory />} />
+        <Route path="/admin/suppliers" element={<Suppliers />} />
+        <Route path="/admin/tables" element={<Tables />} />
+        <Route path="/admin/recipes" element={<Recipes />} />
+        <Route path="/admin/reports" element={<Reports />} />
       </Routes>
     </Suspense>
   );

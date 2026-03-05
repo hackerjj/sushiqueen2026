@@ -10,6 +10,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
   { value: 'confirmed', label: 'Confirmada' },
   { value: 'preparing', label: 'Preparando' },
   { value: 'ready', label: 'Lista' },
+  { value: 'delivering', label: 'En camino' },
   { value: 'delivered', label: 'Entregada' },
   { value: 'cancelled', label: 'Cancelada' },
 ];
@@ -19,6 +20,7 @@ const statusColors: Record<string, string> = {
   confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
   preparing: 'bg-purple-100 text-purple-800 border-purple-200',
   ready: 'bg-green-100 text-green-800 border-green-200',
+  delivering: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   delivered: 'bg-gray-100 text-gray-600 border-gray-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
 };
@@ -87,6 +89,7 @@ const Orders: React.FC = () => {
           <option value="web">Web</option>
           <option value="whatsapp">WhatsApp</option>
           <option value="facebook">Facebook</option>
+          <option value="pos">POS</option>
         </select>
         <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" placeholder="Desde" />
         <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" placeholder="Hasta" />
@@ -117,7 +120,7 @@ const Orders: React.FC = () => {
             <tbody>
               {orders.map((order) => (
                 <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-5 py-3 font-mono text-xs text-gray-600">{order._id.slice(-6).toUpperCase()}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-gray-600">{order.order_number || order._id.slice(-6).toUpperCase()}</td>
                   <td className="px-5 py-3 text-gray-700">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</td>
                   <td className="px-5 py-3 font-medium text-gray-900">{formatCurrency(order.total)}</td>
                   <td className="px-5 py-3">
@@ -160,7 +163,7 @@ const Orders: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Orden #{detailOrder._id.slice(-6).toUpperCase()}</h3>
+              <h3 className="font-semibold text-gray-900">Orden {detailOrder.order_number || '#' + detailOrder._id.slice(-6).toUpperCase()}</h3>
               <button onClick={() => setDetailOrder(null)} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>

@@ -34,7 +34,7 @@ const MenuManager: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
+
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
@@ -88,14 +88,6 @@ const MenuManager: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const syncFudo = async () => {
-    try {
-      setSyncing(true);
-      await api.post('/fudo/sync-menu');
-      fetchItems();
-    } catch { /* ignore */ } finally { setSyncing(false); }
-  };
-
   const addModifier = () => setForm({ ...form, modifiers: [...form.modifiers, { name: '', price: 0 }] });
   const removeModifier = (idx: number) => setForm({ ...form, modifiers: form.modifiers.filter((_, i) => i !== idx) });
   const updateModifier = (idx: number, field: keyof ModifierForm, value: string | number) => {
@@ -120,10 +112,6 @@ const MenuManager: React.FC = () => {
           <span className="text-sm text-gray-500">{filtered.length} items</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={syncFudo} disabled={syncing} className="bg-sushi-accent hover:bg-yellow-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-            <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            {syncing ? 'Sincronizando...' : 'Sync Fudo'}
-          </button>
           <button onClick={openCreate} className="bg-sushi-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             Nuevo Item
@@ -154,7 +142,7 @@ const MenuManager: React.FC = () => {
                     {item.image_url ? (
                       <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-lg">🍣</div>
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">Sin img</div>
                     )}
                   </td>
                   <td className="px-5 py-3">

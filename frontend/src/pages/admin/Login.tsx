@@ -23,9 +23,8 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Branding */}
         <div className="text-center mb-8">
-          <span className="text-5xl">🍣</span>
           <h1 className="font-display text-3xl font-bold text-white mt-4">
-            Sushi <span className="text-sushi-accent">Queen</span>
+            Meal<span className="text-sushi-accent">Li</span>
           </h1>
           <p className="text-gray-400 mt-2 text-sm">Panel de Administración</p>
         </div>
@@ -93,7 +92,7 @@ const Login: React.FC = () => {
         </form>
 
         <p className="text-center text-gray-500 text-xs mt-6">
-          © {new Date().getFullYear()} Sushi Queen — Admin Panel
+          © {new Date().getFullYear()} MealLi POS
         </p>
       </div>
     </div>
