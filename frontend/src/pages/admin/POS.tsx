@@ -195,6 +195,7 @@ const POS: React.FC = () => {
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
           <button onClick={() => navigate('/admin')} className="text-gray-500 hover:text-gray-700 text-sm">← Admin</button>
           <h1 className="text-lg font-bold text-gray-900">Punto de Venta</h1>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Buscar..." className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-48 focus:ring-2 focus:ring-sushi-primary outline-none" />
         </div>
 
         {/* Category tabs + search */}
@@ -207,7 +208,6 @@ const POS: React.FC = () => {
               {c}
             </button>
           ))}
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-40 focus:ring-2 focus:ring-sushi-primary outline-none" />
         </div>
 
         {/* Products */}
