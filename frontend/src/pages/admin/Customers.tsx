@@ -96,7 +96,7 @@ const Customers: React.FC = () => {
     } catch { /* ignore */ } finally { setSaving(false); }
   };
 
-  const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (n: number | undefined | null) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const filtered = customers.filter((c) => {
     if (search) {
