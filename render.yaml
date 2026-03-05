@@ -1,0 +1,64 @@
+services:
+  # Backend - PHP Laravel API (Docker)
+  - type: web
+    name: sushi-queen-backend
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./backend/Dockerfile.render
+    dockerContext: ./backend
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: APP_NAME
+        value: "Sushi Queen"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: "https://sushi-queen-backend.onrender.com"
+      - key: APP_KEY
+        value: "base64:xirb/tT2nTYGtVDi9BFlGrKtvKXPs48Mncsy6qx80Jk="
+      - key: JWT_SECRET
+        value: "s0b0aVnb1DOG6NWgUZNzvIEwQpO+FW7H6WD8zLxjzqG/lvM1lREq6tMVcptvt0r+otIx9jHVrbzDGM5u/IEVGw=="
+      - key: JWT_TTL
+        value: "60"
+      - key: PORT
+        value: "10000"
+      - key: DB_CONNECTION
+        value: mongodb
+      - key: MONGO_URI
+        value: "mongodb+srv://jairalonsogarcias_db_user:rTS47frTdRtG2NUh@sushiqueen.34hq2xo.mongodb.net/sushi_queen?retryWrites=true&w=majority&appName=sushiqueen"
+      - key: MONGO_DATABASE
+        value: sushi_queen
+      - key: CACHE_DRIVER
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://sushiqueen.galt.com.mx,http://localhost:3000"
+      - key: FUDO_CLIENT_ID
+        value: "MDAwMDI6MDYzOTU2"
+      - key: FUDO_CLIENT_SECRET
+        value: "xH6rdcTALbNBv3qBoAUyhYFz"
+      - key: FUDO_API_URL
+        value: "https://api.fu.do"
+      - key: FUDO_AUTH_URL
+        value: "https://api.fu.do/oauth/token"
+      - key: FUDO_WEBHOOK_SECRET
+        value: ""
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: GOOGLE_AI_MODEL
+        value: "gemini-2.0-flash"
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false

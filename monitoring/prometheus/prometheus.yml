@@ -1,0 +1,67 @@
+# ─────────────────────────────────────────────────────────────
+# Prometheus Configuration — Sushi Queen
+# ─────────────────────────────────────────────────────────────
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+  external_labels:
+    project: 'sushi-queen'
+    environment: 'production'
+
+# ─── Alerting (optional, for future Alertmanager) ────────────
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# ─── Scrape Targets ──────────────────────────────────────────
+
+scrape_configs:
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          app: 'sushi-queen'
+          service: 'prometheus'
+
+  # PHP-FPM / Laravel API metrics (exposed at /api/metrics)
+  - job_name: 'sushi-queen-api'
+    metrics_path: /api/metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['nginx:80']
+        labels:
+          app: 'sushi-queen'
+          service: 'api'
+
+  # Nginx metrics via nginx-prometheus-exporter
+  - job_name: 'nginx'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          app: 'sushi-queen'
+          service: 'nginx'
+
+  # MongoDB metrics via mongodb-exporter
+  - job_name: 'mongodb'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+        labels:
+          app: 'sushi-queen'
+          service: 'database'
+
+  # Redis metrics via redis-exporter
+  - job_name: 'redis'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          app: 'sushi-queen'
+          service: 'cache'
