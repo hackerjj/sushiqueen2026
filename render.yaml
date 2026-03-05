@@ -7,6 +7,8 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile.render
     dockerContext: ./backend
+    autoDeploy: true
+    branch: main
     envVars:
       - key: APP_NAME
         value: "Sushi Queen"

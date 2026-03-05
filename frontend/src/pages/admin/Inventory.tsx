@@ -108,44 +108,46 @@ const Inventory: React.FC = () => {
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sushi-primary" /></div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-100">
-                <th className="px-5 py-3 font-medium">Ingrediente</th>
-                <th className="px-5 py-3 font-medium">Categoría</th>
-                <th className="px-5 py-3 font-medium">Stock</th>
-                <th className="px-5 py-3 font-medium">Mínimo</th>
-                <th className="px-5 py-3 font-medium">Costo/Unidad</th>
-                <th className="px-5 py-3 font-medium">Estado</th>
-                <th className="px-5 py-3 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(item => (
-                <tr key={item._id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-900">{item.name}</td>
-                  <td className="px-5 py-3 text-gray-600">{item.category || '-'}</td>
-                  <td className="px-5 py-3">{item.current_stock} {item.unit}</td>
-                  <td className="px-5 py-3 text-gray-500">{item.min_stock} {item.unit}</td>
-                  <td className="px-5 py-3">{fmt(item.cost_per_unit)}/{item.unit}</td>
-                  <td className="px-5 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isLow(item) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      {isLow(item) ? 'Bajo' : 'OK'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setMovementModal(item._id)} className="text-green-600 hover:text-green-800 text-xs font-medium">Movimiento</button>
-                      <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">Editar</button>
-                      <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
-                    </div>
-                  </td>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="text-left text-gray-500 border-b border-gray-100">
+                  <th className="px-5 py-3 font-medium">Ingrediente</th>
+                  <th className="px-5 py-3 font-medium">Categoría</th>
+                  <th className="px-5 py-3 font-medium">Stock</th>
+                  <th className="px-5 py-3 font-medium">Mínimo</th>
+                  <th className="px-5 py-3 font-medium">Costo/Unidad</th>
+                  <th className="px-5 py-3 font-medium">Estado</th>
+                  <th className="px-5 py-3 font-medium">Acciones</th>
                 </tr>
-              ))}
-              {filtered.length === 0 && <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No hay ingredientes</td></tr>}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(item => (
+                  <tr key={item._id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-5 py-3 font-medium text-gray-900">{item.name}</td>
+                    <td className="px-5 py-3 text-gray-600">{item.category || '-'}</td>
+                    <td className="px-5 py-3">{item.current_stock} {item.unit}</td>
+                    <td className="px-5 py-3 text-gray-500">{item.min_stock} {item.unit}</td>
+                    <td className="px-5 py-3">{fmt(item.cost_per_unit)}/{item.unit}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isLow(item) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {isLow(item) ? 'Bajo' : 'OK'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setMovementModal(item._id)} className="text-green-600 hover:text-green-800 text-xs font-medium">Movimiento</button>
+                        <button onClick={() => openEdit(item)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">Editar</button>
+                        <button onClick={() => handleDelete(item._id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No hay ingredientes</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

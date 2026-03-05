@@ -52,15 +52,21 @@ class CustomerController extends Controller
             ->get();
 
         return response()->json([
-            'customer' => $customer,
-            'orders' => $orders,
-            'stats' => [
+            'data' => [
+                'customer' => $customer,
+                'orders' => $orders,
+                '_id' => $customer->_id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'email' => $customer->email,
+                'address' => $customer->address,
+                'tier' => $customer->tier,
+                'source' => $customer->source,
                 'total_orders' => $customer->total_orders,
                 'total_spent' => $customer->total_spent,
-                'tier' => $customer->tier,
-                'average_order' => $customer->total_orders > 0
-                    ? round($customer->total_spent / $customer->total_orders, 2)
-                    : 0,
+                'ai_profile' => $customer->ai_profile,
+                'preferences' => $customer->preferences,
+                'last_order_at' => $customer->last_order_at,
             ],
         ]);
     }

@@ -182,3 +182,9 @@ Route::prefix('webhooks')->group(function () {
     Route::get('/whatsapp', [WebhookController::class, 'whatsappVerify']);
     Route::post('/whatsapp', [WebhookController::class, 'whatsappIncoming']);
 });
+
+// ─── Fudo Data Fallback (JSON) ──────────────────────────────────
+// Sirve datos desde JSON cuando MongoDB no está disponible
+if (file_exists(__DIR__ . '/api_fudo_fallback.php')) {
+    require __DIR__ . '/api_fudo_fallback.php';
+}

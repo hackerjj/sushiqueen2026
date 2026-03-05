@@ -19,6 +19,7 @@ const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
 const Insights = lazy(() => import('./pages/admin/Insights'));
 const POS = lazy(() => import('./pages/admin/POS'));
 const Kitchen = lazy(() => import('./pages/admin/Kitchen'));
+const Delivery = lazy(() => import('./pages/admin/Delivery'));
 const CashRegister = lazy(() => import('./pages/admin/CashRegister'));
 const Inventory = lazy(() => import('./pages/admin/Inventory'));
 const Suppliers = lazy(() => import('./pages/admin/Suppliers'));
@@ -54,6 +55,7 @@ const App: React.FC = () => {
         <Route path="/admin" element={<Dashboard />} />
         <Route path="/admin/pos" element={<POS />} />
         <Route path="/admin/kitchen" element={<Kitchen />} />
+        <Route path="/admin/delivery" element={<Delivery />} />
         <Route path="/admin/cash-register" element={<CashRegister />} />
         <Route path="/admin/menu" element={<MenuManager />} />
         <Route path="/admin/orders" element={<AdminOrders />} />

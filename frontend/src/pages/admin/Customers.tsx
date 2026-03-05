@@ -72,11 +72,18 @@ const Customers: React.FC = () => {
     setEditMode(false);
     setDetailLoading(true);
     try {
-      const { data } = await api.get<ApiResponse<CustomerDetail>>(`/admin/customers/${customer._id}`);
-      setDetail(data.data);
+      const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
+      // Handle both response formats
+      if (data.data) {
+        setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
+      } else {
+        setDetail({ ...customer, orders: [] });
+      }
     } catch {
-      // keep basic info
-    } finally { setDetailLoading(false); }
+      setDetail({ ...customer, orders: [] });
+    } finally { 
+      setDetailLoading(false); 
+    }
   };
 
   const startEdit = () => {
@@ -322,13 +329,22 @@ const Customers: React.FC = () => {
                   {/* Order History */}
                   {detail.orders && detail.orders.length > 0 && (
                     <div>
-                      <h5 className="text-sm font-medium text-gray-700 mb-2">Historial de Órdenes</h5>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Historial de Órdenes ({detail.orders.length})</h5>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
                         {detail.orders.map((order) => (
-                          <div key={order._id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                            <div>
-                              <span className="font-mono text-xs text-gray-500">#{order._id.slice(-6).toUpperCase()}</span>
-                              <span className="ml-2 text-gray-700">{order.items.length} items</span>
+                          <div key={order._id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 transition-colors">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-gray-500">#{order.order_number || order._id.slice(-6).toUpperCase()}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                  order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {order.status}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 mt-0.5">{order.items?.length || 0} items • {order.type || 'N/A'}</p>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="font-medium text-gray-900">{formatCurrency(order.total)}</span>

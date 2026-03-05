@@ -37,11 +37,7 @@ const POS: React.FC = () => {
   const [showTicket, setShowTicket] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
-  const [tableCarts, setTableCarts] = useState<Record<string, { items: POSCartItem[]; guestCount: number; sent: boolean }>>(() => {
-    try { const s = localStorage.getItem('pos_table_carts'); return s ? JSON.parse(s) : {}; } catch { return {}; }
-  });
-  // Persist tableCarts to localStorage
-  useEffect(() => { localStorage.setItem('pos_table_carts', JSON.stringify(tableCarts)); }, [tableCarts]);
+  const [tableCarts, setTableCarts] = useState<Record<string, { items: POSCartItem[]; guestCount: number; sent: boolean }>>({});
   // Payment details
   const [cashReceived, setCashReceived] = useState('');
   const [tipAmount, setTipAmount] = useState('');
@@ -56,16 +52,25 @@ const POS: React.FC = () => {
     try { setLoading(true); const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu'); const l = Array.isArray(data.data) ? data.data.filter(i => i.available) : []; setItems(l.length > 0 ? l : menuData); } catch { setItems(menuData); } finally { setLoading(false); }
   }, []);
 
-  const defaultTables = [
-    { _id: '1', number: 1, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
-    { _id: '2', number: 2, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 1, position_y: 1 },
-    { _id: '3', number: 3, zone: 'Salón', status: 'free', capacity: 6, shape: 'square', size: 'medium', position_x: 2, position_y: 1 },
-    { _id: '4', number: 4, zone: 'Salón', status: 'free', capacity: 4, shape: 'square', size: 'large', position_x: 2, position_y: 0 },
-    { _id: '5', number: 5, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 0 },
-    { _id: '6', number: 6, zone: 'Terraza', status: 'free', capacity: 4, shape: 'square', size: 'medium', position_x: 0, position_y: 1 },
-  ];
-  const fetchTables = async () => { try { const { data } = await api.get('/admin/tables'); const l = Array.isArray(data.data) ? data.data : []; setTables(l.length > 0 ? l : defaultTables); } catch { setTables(defaultTables); } };
-  useEffect(() => { if (isAuthenticated) { fetchMenu(); fetchTables(); } }, [fetchMenu, isAuthenticated]);
+  const fetchTables = async () => { 
+    try { 
+      const { data } = await api.get('/admin/tables'); 
+      const l = Array.isArray(data.data) ? data.data : []; 
+      setTables(l); 
+    } catch { 
+      setTables([]); 
+    } 
+  };
+  
+  useEffect(() => { 
+    if (isAuthenticated) { 
+      fetchMenu(); 
+      fetchTables(); 
+      // Poll tables every 10 seconds to sync status
+      const interval = setInterval(fetchTables, 10000);
+      return () => clearInterval(interval);
+    } 
+  }, [fetchMenu, isAuthenticated]);
 
   const selectTable = (t: typeof tables[0]) => {
     if (selectedTable && cart.length > 0) setTableCarts(p => ({ ...p, [selectedTable]: { items: cart, guestCount, sent: sentToKitchen } }));
@@ -169,12 +174,12 @@ const POS: React.FC = () => {
 
   // ─── Main POS View ─────────────────────────────────────────
   return (
-    <div className="h-screen bg-gray-100 flex overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="h-screen bg-gray-100 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
           <button onClick={() => navigate('/admin')} className="text-gray-500 hover:text-gray-700 text-sm">← Admin</button>
           <h1 className="text-lg font-bold text-gray-900">Punto de Venta</h1>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Buscar..." className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-48 focus:ring-2 focus:ring-sushi-primary outline-none" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Buscar..." className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-32 lg:w-48 focus:ring-2 focus:ring-sushi-primary outline-none" />
         </div>
         <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 overflow-x-auto">
           <button onClick={() => setCategory('')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${!category ? 'bg-sushi-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todos</button>
@@ -212,21 +217,31 @@ const POS: React.FC = () => {
       </div>
 
       {/* Right: Cart */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+      <div className="w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col max-h-screen lg:max-h-none">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">{orderType === 'dine_in' && selectedTableNum > 0 ? `Mesa ${selectedTableNum}` : 'Orden Actual'}</h2>
           {orderType === 'dine_in' && selectedTable && <button onClick={goBackToGrid} className="text-xs text-gray-500 hover:text-red-500">← Mesas</button>}
         </div>
-        <div className="px-4 py-2 border-b border-gray-100 flex gap-2">
-          {(['dine_in', 'takeout', 'delivery'] as OrderType[]).map(t => (
-            <button key={t} onClick={() => { setOrderType(t); if (t !== 'dine_in') { setSelectedTable(''); setSelectedTableNum(0); } setShowPayment(false); }} className={`flex-1 py-1.5 rounded-lg text-xs font-medium ${orderType === t ? 'bg-sushi-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
-              {t === 'dine_in' ? 'Mesa' : t === 'takeout' ? 'Para llevar' : 'Delivery'}
-            </button>
-          ))}
+        <div className="px-4 py-2 border-b border-gray-100">
+          <div className="flex gap-2 overflow-x-auto">
+            {(['dine_in', 'takeout', 'delivery'] as OrderType[]).map(t => (
+              <button key={t} onClick={() => { setOrderType(t); if (t !== 'dine_in') { setSelectedTable(''); setSelectedTableNum(0); } setShowPayment(false); }} className={`flex-1 min-w-[80px] py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${orderType === t ? 'bg-sushi-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
+                {t === 'dine_in' ? 'Mesa' : t === 'takeout' ? 'Para llevar' : 'Delivery'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="px-4 py-2 border-b border-gray-100 space-y-2">
           {orderType === 'dine_in' && selectedTable && (<div className="flex items-center gap-2"><label className="text-xs text-gray-500">Personas:</label><select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs">{[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}</select></div>)}
-          {orderType === 'takeout' && (<><input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" /><input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Teléfono *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" /></>)}
+          {orderType === 'takeout' && (
+            <>
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" />
+              <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Teléfono *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+                📦 Tracking: Podrás ver el estado en la sección Delivery
+              </div>
+            </>
+          )}
           {orderType === 'delivery' && (<div className="relative"><input value={customerPhone} onChange={(e) => { setCustomerPhone(e.target.value); searchCustomers(e.target.value); }} placeholder="Teléfono *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs" />{showMatches && customerMatches.length > 0 && (<div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-32 overflow-y-auto">{customerMatches.map(c => (<button key={c._id} onClick={() => selectCustomer(c)} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs border-b last:border-0"><span className="font-medium">{c.name}</span> — {c.phone}</button>))}</div>)}<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nombre *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs mt-2" /><input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Dirección *" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs mt-2" /></div>)}
         </div>
         {/* Cart items */}
