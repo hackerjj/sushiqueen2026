@@ -29,15 +29,29 @@ const Recipes: React.FC = () => {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [recRes, menuRes, ingRes] = await Promise.all([
-        api.get('/admin/recipes'),
-        api.get<ApiResponse<MenuItem[]>>('/admin/menu'),
-        api.get('/admin/ingredients'),
-      ]);
-      setRecipes(Array.isArray(recRes.data.data) ? recRes.data.data : []);
-      const items = Array.isArray(menuRes.data.data) ? menuRes.data.data : [];
-      setMenuItems(items);
-      setIngredients(Array.isArray(ingRes.data.data) ? ingRes.data.data : []);
+      // Try fallback endpoints first
+      try {
+        const [recRes, menuRes, ingRes] = await Promise.all([
+          api.get('/admin/recipes'),
+          api.get<ApiResponse<MenuItem[]>>('/admin/menu-json'),
+          api.get('/admin/ingredients-json'),
+        ]);
+        setRecipes(Array.isArray(recRes.data.data) ? recRes.data.data : []);
+        const items = Array.isArray(menuRes.data.data) ? menuRes.data.data : [];
+        setMenuItems(items);
+        setIngredients(Array.isArray(ingRes.data.data) ? ingRes.data.data : []);
+      } catch {
+        // If fallback fails, try MongoDB endpoints
+        const [recRes, menuRes, ingRes] = await Promise.all([
+          api.get('/admin/recipes'),
+          api.get<ApiResponse<MenuItem[]>>('/admin/menu'),
+          api.get('/admin/ingredients'),
+        ]);
+        setRecipes(Array.isArray(recRes.data.data) ? recRes.data.data : []);
+        const items = Array.isArray(menuRes.data.data) ? menuRes.data.data : [];
+        setMenuItems(items);
+        setIngredients(Array.isArray(ingRes.data.data) ? ingRes.data.data : []);
+      }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 

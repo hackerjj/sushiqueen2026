@@ -44,8 +44,15 @@ const MenuManager: React.FC = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu');
-      setItems(Array.isArray(data.data) ? data.data : []);
+      // Try fallback endpoint first
+      try {
+        const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu-json');
+        setItems(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        // If fallback fails, try MongoDB endpoint
+        const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu');
+        setItems(Array.isArray(data.data) ? data.data : []);
+      }
     } catch { /* ignore */ } finally { setLoading(false); }
   };
 

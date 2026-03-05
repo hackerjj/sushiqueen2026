@@ -54,14 +54,27 @@ const Orders: React.FC = () => {
       if (filterSource) params.source = filterSource;
       if (dateFrom) params.from = dateFrom;
       if (dateTo) params.to = dateTo;
-      const { data } = await api.get('/admin/orders', { params });
-      const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-      setOrders(list);
-      const meta = (data as any).meta || (data as any);
-      setTotalPages(meta.last_page || 1);
-      setTotalOrders(meta.total || list.length);
+      
+      // Try fallback endpoint first (JSON data from Fudo)
+      try {
+        const { data } = await api.get('/admin/orders-json', { params });
+        const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+        setOrders(list);
+        const meta = (data as any).meta || (data as any);
+        setTotalPages(meta.last_page || 1);
+        setTotalOrders(meta.total || list.length);
+        return;
+      } catch {
+        // If fallback fails, try MongoDB endpoint
+        const { data } = await api.get('/admin/orders', { params });
+        const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+        setOrders(list);
+        const meta = (data as any).meta || (data as any);
+        setTotalPages(meta.last_page || 1);
+        setTotalOrders(meta.total || list.length);
+      }
     } catch {
-      // Fallback: try to load from localStorage POS orders
+      // Final fallback: try to load from localStorage POS orders
       try {
         const saved = localStorage.getItem('pos_completed_orders');
         if (saved) { const list = JSON.parse(saved); setOrders(list); setTotalOrders(list.length); }

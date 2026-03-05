@@ -49,7 +49,20 @@ const POS: React.FC = () => {
   useEffect(() => { if (!isAuthenticated) navigate('/admin/login'); }, [isAuthenticated, navigate]);
 
   const fetchMenu = useCallback(async () => {
-    try { setLoading(true); const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu'); const l = Array.isArray(data.data) ? data.data.filter(i => i.available) : []; setItems(l.length > 0 ? l : menuData); } catch { setItems(menuData); } finally { setLoading(false); }
+    try { 
+      setLoading(true); 
+      // Try fallback endpoint first
+      try {
+        const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu-json'); 
+        const l = Array.isArray(data.data) ? data.data.filter(i => i.available) : []; 
+        setItems(l.length > 0 ? l : menuData);
+      } catch {
+        // If fallback fails, try MongoDB endpoint
+        const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu'); 
+        const l = Array.isArray(data.data) ? data.data.filter(i => i.available) : []; 
+        setItems(l.length > 0 ? l : menuData);
+      }
+    } catch { setItems(menuData); } finally { setLoading(false); }
   }, []);
 
   const fetchTables = async () => { 

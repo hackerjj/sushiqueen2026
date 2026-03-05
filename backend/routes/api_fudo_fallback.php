@@ -189,3 +189,69 @@ Route::get('/admin/cash-register-json', function () use ($dataPath) {
     
     return response()->json(['data' => $transformed]);
 });
+
+// Detalle de cliente con órdenes desde JSON
+Route::get('/admin/customers-json/{id}', function ($id) use ($dataPath) {
+    $clientesFile = $dataPath . '/clientes.json';
+    $ventasFile = $dataPath . '/ventas.json';
+    
+    if (!file_exists($clientesFile) || !file_exists($ventasFile)) {
+        return response()->json(['error' => 'Data not found'], 404);
+    }
+    
+    $clientes = json_decode(file_get_contents($clientesFile), true);
+    $ventas = json_decode(file_get_contents($ventasFile), true);
+    
+    // Find customer
+    $customer = null;
+    foreach ($clientes as $c) {
+        if (($c['id'] ?? '') === $id || ($c['_id'] ?? '') === $id) {
+            $customer = [
+                '_id' => $c['id'] ?? $id,
+                'name' => $c['nombre'] ?? $c['name'] ?? 'Cliente',
+                'phone' => $c['telefono'] ?? $c['phone'] ?? '',
+                'email' => $c['email'] ?? '',
+                'address' => $c['direccion'] ?? $c['address'] ?? '',
+                'source' => 'fudo',
+                'tier' => 'regular',
+                'total_orders' => $c['total_ordenes'] ?? 0,
+                'total_spent' => $c['total_gastado'] ?? 0,
+                'preferences' => [],
+                'ai_profile' => ['avg_order_value' => $c['total_ordenes'] > 0 ? ($c['total_gastado'] / $c['total_ordenes']) : 0],
+                'last_order_at' => $c['ultima_orden'] ?? null,
+            ];
+            break;
+        }
+    }
+    
+    if (!$customer) {
+        return response()->json(['error' => 'Customer not found'], 404);
+    }
+    
+    // Find customer orders
+    $orders = [];
+    foreach ($ventas as $v) {
+        if (($v['cliente_id'] ?? '') === $id) {
+            $orders[] = [
+                '_id' => $v['id'] ?? uniqid(),
+                'order_number' => $v['numero_orden'] ?? $v['id'] ?? rand(1000, 9999),
+                'customer_id' => $id,
+                'items' => json_decode($v['productos'] ?? '[]', true) ?: [
+                    ['name' => $v['producto'] ?? 'Producto', 'quantity' => $v['cantidad'] ?? 1, 'price' => $v['precio'] ?? 0]
+                ],
+                'subtotal' => $v['subtotal'] ?? $v['total'] ?? 0,
+                'tax' => $v['impuesto'] ?? 0,
+                'total' => $v['total'] ?? 0,
+                'status' => $v['estado'] ?? 'delivered',
+                'source' => 'fudo',
+                'type' => $v['tipo'] ?? 'dine_in',
+                'payment_method' => $v['metodo_pago'] ?? 'cash',
+                'created_at' => $v['fecha'] ?? $v['created_at'] ?? now(),
+            ];
+        }
+    }
+    
+    return response()->json([
+        'data' => array_merge($customer, ['orders' => $orders])
+    ]);
+});

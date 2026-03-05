@@ -30,12 +30,23 @@ const Delivery: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [ordersRes, customersRes] = await Promise.all([
-        api.get('/admin/orders', { params: { type: 'delivery', status: 'pending,confirmed,preparing,ready,delivering' } }),
-        api.get('/admin/customers')
-      ]);
-      setOrders(Array.isArray(ordersRes.data.data) ? ordersRes.data.data : []);
-      setCustomers(Array.isArray(customersRes.data.data) ? customersRes.data.data : []);
+      // Try fallback endpoints first
+      try {
+        const [ordersRes, customersRes] = await Promise.all([
+          api.get('/admin/orders-json', { params: { type: 'delivery', status: 'pending,confirmed,preparing,ready,delivering' } }),
+          api.get('/admin/customers-json')
+        ]);
+        setOrders(Array.isArray(ordersRes.data.data) ? ordersRes.data.data : []);
+        setCustomers(Array.isArray(customersRes.data.data) ? customersRes.data.data : []);
+      } catch {
+        // If fallback fails, try MongoDB endpoints
+        const [ordersRes, customersRes] = await Promise.all([
+          api.get('/admin/orders', { params: { type: 'delivery', status: 'pending,confirmed,preparing,ready,delivering' } }),
+          api.get('/admin/customers')
+        ]);
+        setOrders(Array.isArray(ordersRes.data.data) ? ordersRes.data.data : []);
+        setCustomers(Array.isArray(customersRes.data.data) ? customersRes.data.data : []);
+      }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
