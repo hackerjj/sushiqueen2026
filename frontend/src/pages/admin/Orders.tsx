@@ -36,8 +36,11 @@ const Orders: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().split('T')[0];
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
@@ -49,19 +52,21 @@ const Orders: React.FC = () => {
       const params: Record<string, string | number> = { page, per_page: 20 };
       if (filterStatus) params.status = filterStatus;
       if (filterSource) params.source = filterSource;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      const { data } = await api.get<ApiResponse<Order[]>>('/admin/orders', { params });
-      setOrders(Array.isArray(data.data) ? data.data : []);
-      // Try to read pagination meta
-      const meta = (data as any).meta;
-      if (meta) {
-        setTotalPages(meta.last_page || 1);
-        setTotalOrders(meta.total || 0);
-      } else {
-        setTotalOrders(Array.isArray(data.data) ? data.data.length : 0);
-      }
-    } catch { /* ignore */ } finally { setLoading(false); }
+      if (dateFrom) params.from = dateFrom;
+      if (dateTo) params.to = dateTo;
+      const { data } = await api.get('/admin/orders', { params });
+      const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+      setOrders(list);
+      const meta = (data as any).meta || (data as any);
+      setTotalPages(meta.last_page || 1);
+      setTotalOrders(meta.total || list.length);
+    } catch {
+      // Fallback: try to load from localStorage POS orders
+      try {
+        const saved = localStorage.getItem('pos_completed_orders');
+        if (saved) { const list = JSON.parse(saved); setOrders(list); setTotalOrders(list.length); }
+      } catch { /* ignore */ }
+    } finally { setLoading(false); }
   }, [page, filterStatus, filterSource, dateFrom, dateTo]);
 
   useEffect(() => { if (isAuthenticated) fetchOrders(); }, [fetchOrders, isAuthenticated]);
@@ -74,7 +79,7 @@ const Orders: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (n: number | undefined | null) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <AdminLayout title="Gestión de Órdenes">

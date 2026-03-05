@@ -37,7 +37,11 @@ const POS: React.FC = () => {
   const [showTicket, setShowTicket] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
-  const [tableCarts, setTableCarts] = useState<Record<string, { items: POSCartItem[]; guestCount: number; sent: boolean }>>({});
+  const [tableCarts, setTableCarts] = useState<Record<string, { items: POSCartItem[]; guestCount: number; sent: boolean }>>(() => {
+    try { const s = localStorage.getItem('pos_table_carts'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  // Persist tableCarts to localStorage
+  useEffect(() => { localStorage.setItem('pos_table_carts', JSON.stringify(tableCarts)); }, [tableCarts]);
   // Payment details
   const [cashReceived, setCashReceived] = useState('');
   const [tipAmount, setTipAmount] = useState('');
@@ -96,6 +100,13 @@ const POS: React.FC = () => {
   const cashChange = (parseFloat(cashReceived) || 0) - total - tip;
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
 
+  const canClose = () => {
+    if (paymentMethod === 'cash') return parseFloat(cashReceived) >= total;
+    if (paymentMethod === 'card') return cardLast4.length === 4 && cardApproval.length > 0;
+    if (paymentMethod === 'transfer') return transferNumber.length > 0;
+    return false;
+  };
+
   const canSubmit = () => { if (cart.length === 0 || submitting) return false; if (orderType === 'dine_in') return !!selectedTable; if (orderType === 'takeout') return !!customerName && !!customerPhone; if (orderType === 'delivery') return !!customerName && !!customerPhone && !!customerAddress; return false; };
 
   const sendToKitchen = async () => {
@@ -109,7 +120,15 @@ const POS: React.FC = () => {
     } finally { setSubmitting(false); }
   };
 
-  const closeOrder = () => { clearTable(); setCustomerName(''); setCustomerPhone(''); setCustomerAddress(''); setShowTicket(false); setShowPayment(false); resetPaymentFields(); };
+  const closeOrder = () => {
+    // Save to localStorage for Orders page fallback
+    try {
+      const saved = JSON.parse(localStorage.getItem('pos_completed_orders') || '[]');
+      saved.unshift({ _id: String(Date.now()), order_number: Date.now() % 100000, items: cart, total, subtotal: total, tax: 0, status: 'completed', source: 'pos', type: orderType, payment_method: paymentMethod, tip, table_id: selectedTable, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      localStorage.setItem('pos_completed_orders', JSON.stringify(saved.slice(0, 100)));
+    } catch { /* ignore */ }
+    clearTable(); setCustomerName(''); setCustomerPhone(''); setCustomerAddress(''); setShowTicket(false); setShowPayment(false); resetPaymentFields();
+  };
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -279,7 +298,7 @@ const POS: React.FC = () => {
           ) : showPayment ? (
             <div className="space-y-2">
               <button onClick={() => setShowTicket(true)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl text-sm">🧾 Imprimir cuenta</button>
-              <button onClick={closeOrder} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl text-sm">✓ Cobrar {fmt(total + tip)}</button>
+              <button onClick={closeOrder} disabled={!canClose()} className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">✓ Cobrar {fmt(total + tip)}</button>
             </div>
           ) : (
             <div className="space-y-2">
