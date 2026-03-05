@@ -1,0 +1,14 @@
+---
+deployment:
+  tasks:
+    # Install frontend dependencies
+    - export DEPLOYPATH=/home/u716757676/domains/galt.com.mx/public_html/sushiqueen
+    - cd frontend
+    - /usr/local/bin/ea-nodejs20 /opt/cpanel/ea-nodejs20/bin/npm install
+    - /usr/local/bin/ea-nodejs20 /opt/cpanel/ea-nodejs20/bin/npm run build
+    - cd ..
+    # Copy built files to deployment path
+    - /bin/cp -R frontend/dist/* $DEPLOYPATH/
+    - /bin/cp .htaccess $DEPLOYPATH/
+    # Copy backend
+    - /bin/cp -R backend $DEPLOYPATH/api
