@@ -44,7 +44,10 @@ export function useMenu(category?: string) {
             image_url: apiItem.image_url || localMatch?.image_url || '/images/menu/default.jpeg',
           };
         });
-        setItems(merged);
+        setItems(merged.sort((a, b) => {
+          if (a.category !== b.category) return a.category.localeCompare(b.category);
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        }));
       } else {
         // No API items, use local data
         const filtered = category
