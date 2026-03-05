@@ -52,7 +52,7 @@ jobs:
           set net:reconnect-interval-base 5
           mkdir -p public_html/sushiqueen
           cd public_html/sushiqueen
-          mirror -R --only-newer --no-perms --parallel=4 --verbose frontend/dist/ .
+          mirror -R --delete --no-perms --parallel=4 --verbose frontend/dist/ .
           bye
           EOF
           

@@ -59,3 +59,8 @@ terraform/*.tfvars
 *.pid
 *.seed
 *.pid.lock
+
+# Deploy temp
+.deploy-temp/
+PROBLEMA_PRODUCCION.md
+CONFIGURAR_SECRETS.md
