@@ -39,7 +39,10 @@ const POS: React.FC = () => {
   const [showMatches, setShowMatches] = useState(false);
   const [sentToKitchen, setSentToKitchen] = useState(false);
   const [showTicket, setShowTicket] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
+  // Cart per table - persists when switching between tables
+  const [tableCarts, setTableCarts] = useState<Record<string, { items: POSCartItem[]; guestCount: number; sent: boolean }>>({});
 
   useEffect(() => { if (!isAuthenticated) navigate('/admin/login'); }, [isAuthenticated, navigate]);
 
@@ -71,8 +74,44 @@ const POS: React.FC = () => {
 
   useEffect(() => { if (isAuthenticated) { fetchMenu(); fetchTables(); } }, [fetchMenu, isAuthenticated]);
 
-  const selectTable = (t: typeof tables[0]) => { setSelectedTable(t._id); setSelectedTableNum(t.number); setOrderType('dine_in'); };
-  const clearTable = () => { setSelectedTable(''); setSelectedTableNum(0); setCart([]); setSentToKitchen(false); };
+  const selectTable = (t: typeof tables[0]) => {
+    // Save current table cart before switching
+    if (selectedTable && cart.length > 0) {
+      setTableCarts(prev => ({ ...prev, [selectedTable]: { items: cart, guestCount, sent: sentToKitchen } }));
+    }
+    // Load saved cart for this table
+    const saved = tableCarts[t._id];
+    setCart(saved?.items || []);
+    setGuestCount(saved?.guestCount || 2);
+    setSentToKitchen(saved?.sent || false);
+    setSelectedTable(t._id);
+    setSelectedTableNum(t.number);
+    setOrderType('dine_in');
+  };
+
+  const goBackToGrid = () => {
+    // Save current cart before going back
+    if (selectedTable && cart.length > 0) {
+      setTableCarts(prev => ({ ...prev, [selectedTable]: { items: cart, guestCount, sent: sentToKitchen } }));
+    }
+    setSelectedTable('');
+    setSelectedTableNum(0);
+  };
+
+  const clearTable = () => {
+    setTableCarts(prev => { const n = { ...prev }; delete n[selectedTable]; return n; });
+    setSelectedTable('');
+    setSelectedTableNum(0);
+    setCart([]);
+    setSentToKitchen(false);
+    setShowPayment(false);
+  };
+
+  // Check if a table has items
+  const tableHasItems = (tableId: string) => {
+    if (tableId === selectedTable) return cart.length > 0;
+    return !!tableCarts[tableId]?.items?.length;
+  };
 
   const zones = [...new Set(tables.map(t => t.zone))];
   const zoneTables = tables.filter(t => t.zone === activeZone);
@@ -128,13 +167,19 @@ const POS: React.FC = () => {
         table_id: selectedTable || undefined, guest_count: orderType === 'dine_in' ? guestCount : undefined,
       }).catch(() => {});
       setSentToKitchen(true);
+      // Save cart state and go back to grid
+      if (selectedTable) {
+        setTableCarts(prev => ({ ...prev, [selectedTable]: { items: cart, guestCount, sent: true } }));
+        setSelectedTable('');
+        setSelectedTableNum(0);
+      }
       setLastOrder('OK');
       setTimeout(() => setLastOrder(null), 3000);
     } finally { setSubmitting(false); }
   };
 
   const printTicket = () => { setShowTicket(true); setTimeout(() => { window.print(); }, 300); };
-  const closeOrder = () => { setCart([]); setSelectedTable(''); setSelectedTableNum(0); setSentToKitchen(false); setCustomerName(''); setCustomerPhone(''); setCustomerAddress(''); setShowTicket(false); };
+  const closeOrder = () => { clearTable(); setCustomerName(''); setCustomerPhone(''); setCustomerAddress(''); setShowTicket(false); setShowPayment(false); };
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -207,10 +252,12 @@ const POS: React.FC = () => {
                 {Array.from({ length: 4 }).map((_, row) => Array.from({ length: 6 }).map((_, col) => {
                   const t = zoneTables.find(tb => (tb.position_x || 0) === col && (tb.position_y || 0) === row);
                   if (!t) return <div key={`${row}-${col}`} />;
+                  const hasItems = tableHasItems(t._id);
                   const colors: Record<string, string> = { free: 'bg-green-400 text-white', occupied: 'bg-red-400 text-white', reserved: 'bg-blue-400 text-white', billing: 'bg-yellow-400 text-white' };
+                  const color = hasItems ? 'bg-orange-400 text-white' : colors[t.status];
                   const sz = t.size === 'large' ? 'w-28 h-28 text-3xl' : t.size === 'small' ? 'w-16 h-16 text-lg' : 'w-20 h-20 text-2xl';
                   const shape = t.shape === 'circle' ? 'rounded-full' : 'rounded-xl';
-                  return (<div key={`${row}-${col}`} className="flex items-center justify-center"><button onClick={() => selectTable(t)} className={`${sz} ${colors[t.status]} ${shape} font-bold flex items-center justify-center hover:scale-105 transition-transform shadow-md`}>{t.number}</button></div>);
+                  return (<div key={`${row}-${col}`} className="flex items-center justify-center"><button onClick={() => selectTable(t)} className={`${sz} ${color} ${shape} font-bold flex items-center justify-center hover:scale-105 transition-transform shadow-md`}>{t.number}</button></div>);
                 }))}
               </div>
               <p className="text-xs text-gray-400 mt-4">Selecciona una mesa para tomar la comanda</p>
@@ -235,7 +282,7 @@ const POS: React.FC = () => {
       <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">{orderType === 'dine_in' && selectedTableNum > 0 ? `Mesa ${selectedTableNum}` : 'Orden Actual'}</h2>
-          {orderType === 'dine_in' && selectedTable && <button onClick={clearTable} className="text-xs text-gray-500 hover:text-red-500">✕ Cambiar</button>}
+          {orderType === 'dine_in' && selectedTable && <button onClick={goBackToGrid} className="text-xs text-gray-500 hover:text-red-500">← Mesas</button>}
         </div>
         <div className="px-4 py-2 border-b border-gray-100 flex gap-2">
           {(['dine_in', 'takeout', 'delivery'] as OrderType[]).map(t => (
@@ -290,29 +337,38 @@ const POS: React.FC = () => {
             </div>
           ))}
         </div>
-        {/* Payment + Actions */}
-        <div className="border-t border-gray-100 px-4 py-2">
-          <div className="flex gap-2">
-            {(['cash', 'card', 'transfer'] as PaymentMethod[]).map(m => (
-              <button key={m} onClick={() => setPaymentMethod(m)} className={`flex-1 py-1.5 rounded-lg text-xs font-medium ${paymentMethod === m ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                {m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : 'Transferencia'}
-              </button>
-            ))}
+        {/* Payment - only when checking out */}
+        {showPayment && (
+          <div className="border-t border-gray-100 px-4 py-2">
+            <div className="flex gap-2">
+              {(['cash', 'card', 'transfer'] as PaymentMethod[]).map(m => (
+                <button key={m} onClick={() => setPaymentMethod(m)} className={`flex-1 py-1.5 rounded-lg text-xs font-medium ${paymentMethod === m ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  {m === 'cash' ? 'Efectivo' : m === 'card' ? 'Tarjeta' : 'Transferencia'}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <div className="border-t border-gray-200 px-4 py-3">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">Total</span>
             <span className="text-2xl font-bold text-gray-900">{fmt(total)}</span>
           </div>
-          {!sentToKitchen ? (
+          {!sentToKitchen && !showPayment ? (
             <button onClick={sendToKitchen} disabled={!canSubmit()} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">
               {submitting ? 'Enviando...' : '🍳 Enviar a cocina'}
             </button>
-          ) : (
+          ) : showPayment ? (
             <div className="space-y-2">
               <button onClick={printTicket} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl text-sm">🧾 Imprimir cuenta</button>
               <button onClick={closeOrder} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl text-sm">✓ Cobrar {fmt(total)}</button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button onClick={sendToKitchen} disabled={!canSubmit()} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm">
+                🍳 Agregar más a cocina
+              </button>
+              <button onClick={() => setShowPayment(true)} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl text-sm">💰 Pedir cuenta</button>
             </div>
           )}
           {lastOrder && <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-center"><p className="text-green-700 text-xs font-medium">Comanda enviada a cocina ✓</p></div>}
