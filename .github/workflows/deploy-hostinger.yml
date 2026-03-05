@@ -33,35 +33,30 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Deploy to Hostinger via FTP
+      - name: Deploy ONLY to sushiqueen folder via FTP
         env:
           FTP_HOST: "191.101.79.184"
           FTP_USER: "u716757676.galt.com.mx"
-          FTP_PASS: ${{ secrets.FTP_PASSWORD || '4Irbus0001!' }}
+          FTP_PASS: "4Irbus0001!"
         run: |
-          # Install lftp
-          sudo apt-get update
-          sudo apt-get install -y lftp
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
           
-          # Deploy files
-          lftp -u ${FTP_USER},${FTP_PASS} ftp://${FTP_HOST} <<EOF
+          lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" <<EOF
           set ftp:ssl-allow no
-          set net:timeout 30
-          set net:max-retries 3
+          set net:timeout 60
+          set net:max-retries 5
+          mkdir -p public_html/sushiqueen
           cd public_html/sushiqueen
-          mirror -R --delete --verbose ./frontend/dist/ ./
-          put .htaccess
+          mirror -R --only-newer --no-perms --parallel=4 frontend/dist/ .
           bye
           EOF
           
-          echo "✅ Files uploaded successfully"
+          echo "✅ Files uploaded to /public_html/sushiqueen/ ONLY"
 
       - name: Deployment summary
         run: |
           echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Folder:** /public_html/sushiqueen/" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** deploy-sushiqueen" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** https://sushiqueen.galt.com.mx" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🎉 Frontend deployed to Hostinger!" >> $GITHUB_STEP_SUMMARY
