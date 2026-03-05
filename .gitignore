@@ -16,8 +16,13 @@ frontend/dist/
 # Laravel
 storage/
 bootstrap/cache/
-backend/storage/
+backend/storage/logs/
+backend/storage/framework/
 backend/bootstrap/cache/
+# Allow fudo_data to be committed
+!backend/storage/app/
+!backend/storage/app/fudo_data/
+!backend/storage/app/fudo_data/*.json
 
 # IDE
 .idea/
