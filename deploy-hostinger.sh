@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 FTP_HOST="191.101.79.184"
 FTP_USER="u716757676.galt.com.mx"
 FTP_PASS="4Irbus0001!"
-FTP_DIR="public_html"
+FTP_DIR="public_html/sushiqueen"
 
 # Check if lftp is installed
 if ! command -v lftp &> /dev/null; then
@@ -86,8 +86,8 @@ set net:max-retries 3
 
 cd ${FTP_DIR}
 
-# Upload frontend files
-mirror -R --delete --verbose .deploy-temp/ ./
+# Upload frontend files ONLY to sushiqueen folder (NEVER use --delete)
+mirror -R --only-newer --verbose .deploy-temp/ ./
 
 bye
 EOF

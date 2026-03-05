@@ -35,20 +35,24 @@ jobs:
 
       - name: Deploy ONLY to sushiqueen folder via FTP
         env:
-          FTP_HOST: "191.101.79.184"
-          FTP_USER: "u716757676.galt.com.mx"
-          FTP_PASS: "4Irbus0001!"
+          FTP_HOST: ${{ secrets.FTP_HOST || '191.101.79.184' }}
+          FTP_USER: ${{ secrets.FTP_USER || 'u716757676.galt.com.mx' }}
+          FTP_PASS: ${{ secrets.FTP_PASS || '4Irbus0001!' }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
+          
+          echo "🚀 Deploying to /public_html/sushiqueen/ ONLY"
+          echo "⚠️  This will NEVER touch other folders (mealli, ropavejero, sounds, etc.)"
           
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" <<EOF
           set ftp:ssl-allow no
           set net:timeout 60
           set net:max-retries 5
+          set net:reconnect-interval-base 5
           mkdir -p public_html/sushiqueen
           cd public_html/sushiqueen
-          mirror -R --only-newer --no-perms --parallel=4 frontend/dist/ .
+          mirror -R --only-newer --no-perms --parallel=4 --verbose frontend/dist/ .
           bye
           EOF
           
@@ -60,3 +64,4 @@ jobs:
           echo "- **Folder:** /public_html/sushiqueen/" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** deploy-sushiqueen" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** https://sushiqueen.galt.com.mx" >> $GITHUB_STEP_SUMMARY
+          echo "- **Safe:** Only sushiqueen folder was modified" >> $GITHUB_STEP_SUMMARY
