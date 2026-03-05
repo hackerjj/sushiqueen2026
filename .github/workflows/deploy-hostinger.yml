@@ -34,30 +34,27 @@ jobs:
           npm run build
 
       - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: ./frontend/dist/
-          server-dir: /public_html/sushiqueen/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-
-      - name: Deploy .htaccess
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: ./
-          server-dir: /public_html/sushiqueen/
-          exclude: |
-            **/*
-            !.htaccess
+        env:
+          FTP_HOST: "191.101.79.184"
+          FTP_USER: "u716757676.galt.com.mx"
+          FTP_PASS: ${{ secrets.FTP_PASSWORD || '4Irbus0001!' }}
+        run: |
+          # Install lftp
+          sudo apt-get update
+          sudo apt-get install -y lftp
+          
+          # Deploy files
+          lftp -u ${FTP_USER},${FTP_PASS} ftp://${FTP_HOST} <<EOF
+          set ftp:ssl-allow no
+          set net:timeout 30
+          set net:max-retries 3
+          cd public_html/sushiqueen
+          mirror -R --delete --verbose ./frontend/dist/ ./
+          put .htaccess
+          bye
+          EOF
+          
+          echo "✅ Files uploaded successfully"
 
       - name: Deployment summary
         run: |
