@@ -47,7 +47,8 @@ class FudoService
      */
     public function authenticate(): string
     {
-        $cached = Cache::store('redis')->get(self::CACHE_TOKEN_KEY);
+        $cacheStore = in_array(config('cache.default'), ['redis', 'file', 'array']) ? config('cache.default') : 'file';
+        $cached = Cache::store($cacheStore)->get(self::CACHE_TOKEN_KEY);
 
         if ($cached) {
             return $cached;
@@ -84,7 +85,8 @@ class FudoService
             $ttl = $data['expires_in'] ?? self::CACHE_TOKEN_TTL;
 
             // Cache with a small buffer before actual expiry
-            Cache::store('redis')->put(self::CACHE_TOKEN_KEY, $token, max($ttl - 60, 60));
+            $cacheStore = in_array(config('cache.default'), ['redis', 'file', 'array']) ? config('cache.default') : 'file';
+            Cache::store($cacheStore)->put(self::CACHE_TOKEN_KEY, $token, max($ttl - 60, 60));
 
             Log::info('FudoService: Access token refreshed successfully');
 

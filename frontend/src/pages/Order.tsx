@@ -42,31 +42,6 @@ const Order: React.FC = () => {
       setConfirmedOrder(result);
       trackPurchase(result);
       clearCart();
-    } else {
-      // Create a mock order for demo purposes when API is unavailable
-      const mockOrder: OrderType = {
-        _id: 'ord_' + Date.now().toString(36),
-        fudo_order_id: '',
-        customer_id: '',
-        items: items.map((i) => ({
-          menu_item_id: i.menu_item_id,
-          name: i.name,
-          quantity: i.quantity,
-          price: i.price,
-          modifiers: i.modifiers.map((m) => m.name),
-        })),
-        subtotal,
-        tax,
-        total,
-        status: 'pending',
-        source: 'web',
-        notes: info.notes || '',
-        delivery_address: info.address,
-        created_at: new Date().toISOString(),
-      };
-      setConfirmedOrder(mockOrder);
-      trackPurchase(mockOrder);
-      clearCart();
     }
   };
 

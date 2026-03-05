@@ -91,6 +91,62 @@ Route::get('/promotions', [PromotionController::class, 'active']);
 Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/orders/{id}/status', [OrderController::class, 'status']);
 
+// ─── Fudo Test (temporary - remove after validating) ─────────────
+
+Route::get('/fudo/test-connection', function () {
+    try {
+        $fudoService = new \App\Services\FudoService();
+        $token = $fudoService->authenticate();
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'Fudo OAuth2 authentication successful',
+            'token_preview' => substr($token, 0, 20) . '...',
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Fudo authentication failed: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
+Route::get('/fudo/test-menu', function () {
+    try {
+        $fudoService = new \App\Services\FudoService();
+        $menu = $fudoService->getMenu();
+
+        return response()->json([
+            'status' => 'ok',
+            'items_count' => count($menu),
+            'sample' => array_slice($menu, 0, 3),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to fetch Fudo menu: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
+Route::post('/fudo/sync-menu-public', function () {
+    try {
+        $fudoService = new \App\Services\FudoService();
+        $result = $fudoService->syncMenuFromFudo();
+
+        return response()->json([
+            'status' => 'ok',
+            'message' => 'Menu synced from Fudo',
+            'data' => $result,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Sync failed: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
 // ─── Auth Routes ─────────────────────────────────────────────────
 
 Route::prefix('auth')->group(function () {

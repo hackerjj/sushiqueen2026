@@ -9,6 +9,12 @@ const Menu: React.FC = () => {
   const [category, setCategory] = useState('all');
   const [search, setSearch] = useState('');
 
+  // Get unique categories from loaded items
+  const availableCategories = useMemo(
+    () => [...new Set(items.map((item) => item.category))],
+    [items]
+  );
+
   const filteredItems = useMemo(() => {
     let result = items;
     if (category !== 'all') {
@@ -64,7 +70,7 @@ const Menu: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Category Filter */}
         <div className="mb-8">
-          <CategoryFilter selected={category} onSelect={setCategory} />
+          <CategoryFilter selected={category} onSelect={setCategory} availableCategories={availableCategories} />
         </div>
 
         {/* Results count */}

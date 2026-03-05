@@ -21,12 +21,11 @@ class OrderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'customer_phone' => 'required|string|max:50',
-            'customer_email' => 'nullable|email',
+        // Accept both flat format (customer_name) and nested format (customer.name)
+        $hasNested = $request->has('customer');
+
+        $rules = [
             'items' => 'required|array|min:1',
-            'items.*.menu_item_id' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.modifiers' => 'nullable|array',
             'items.*.notes' => 'nullable|string',
@@ -34,14 +33,40 @@ class OrderController extends Controller
             'delivery_address' => 'nullable|string',
             'source' => 'nullable|string|in:web,whatsapp,facebook,phone',
             'send_to_fudo' => 'nullable|boolean',
-        ]);
+        ];
+
+        if ($hasNested) {
+            $rules['customer.name'] = 'required|string|max:255';
+            $rules['customer.phone'] = 'required|string|max:50';
+            $rules['customer.email'] = 'nullable|email';
+            $rules['customer.address'] = 'nullable|string';
+            $rules['items.*.menu_item_id'] = 'required|string';
+            $rules['items.*.name'] = 'nullable|string';
+            $rules['items.*.price'] = 'nullable|numeric';
+        } else {
+            $rules['customer_name'] = 'required|string|max:255';
+            $rules['customer_phone'] = 'required|string|max:50';
+            $rules['customer_email'] = 'nullable|email';
+            $rules['items.*.menu_item_id'] = 'required|string';
+        }
+
+        $validated = $request->validate($rules);
+
+        // Normalize customer data from either format
+        $customerName = $hasNested ? $validated['customer']['name'] : $validated['customer_name'];
+        $customerPhone = $hasNested ? $validated['customer']['phone'] : $validated['customer_phone'];
+        $customerEmail = $hasNested
+            ? ($validated['customer']['email'] ?? null)
+            : ($validated['customer_email'] ?? null);
+        $deliveryAddress = $validated['delivery_address']
+            ?? ($hasNested ? ($validated['customer']['address'] ?? '') : '');
 
         // Find or create customer
         $customer = Customer::firstOrCreate(
-            ['phone' => $validated['customer_phone']],
+            ['phone' => $customerPhone],
             [
-                'name' => $validated['customer_name'],
-                'email' => $validated['customer_email'] ?? null,
+                'name' => $customerName,
+                'email' => $customerEmail,
                 'source' => $validated['source'] ?? 'web',
                 'tier' => 'new',
                 'total_orders' => 0,
@@ -56,7 +81,34 @@ class OrderController extends Controller
         $subtotal = 0;
 
         foreach ($validated['items'] as $item) {
-            $menuItem = MenuItem::findOrFail($item['menu_item_id']);
+            // Try to find menu item by ID first, then by name as fallback
+            $menuItem = MenuItem::find($item['menu_item_id']);
+
+            if (!$menuItem && !empty($item['name'])) {
+                $menuItem = MenuItem::where('name', $item['name'])->first();
+            }
+
+            // If still not found, create order item from provided data
+            if (!$menuItem) {
+                Log::warning('OrderController: Menu item not found, using provided data', [
+                    'menu_item_id' => $item['menu_item_id'],
+                    'name' => $item['name'] ?? 'unknown',
+                ]);
+
+                $lineTotal = ($item['price'] ?? 0) * $item['quantity'];
+                $subtotal += $lineTotal;
+
+                $orderItems[] = [
+                    'menu_item_id' => $item['menu_item_id'],
+                    'name' => $item['name'] ?? 'Item desconocido',
+                    'price' => $item['price'] ?? 0,
+                    'quantity' => $item['quantity'],
+                    'modifiers' => $item['modifiers'] ?? [],
+                    'notes' => $item['notes'] ?? '',
+                    'line_total' => $lineTotal,
+                ];
+                continue;
+            }
 
             $lineTotal = $menuItem->price * $item['quantity'];
             $subtotal += $lineTotal;
@@ -84,7 +136,7 @@ class OrderController extends Controller
             'status' => 'pending',
             'source' => $validated['source'] ?? 'web',
             'notes' => $validated['notes'] ?? '',
-            'delivery_address' => $validated['delivery_address'] ?? '',
+            'delivery_address' => $deliveryAddress,
         ]);
 
         // Update customer stats
@@ -92,7 +144,7 @@ class OrderController extends Controller
         $customer->increment('total_spent', $total);
         $customer->update([
             'last_order_at' => now(),
-            'address' => $validated['delivery_address'] ?? $customer->address,
+            'address' => $deliveryAddress ?: $customer->address,
         ]);
 
         // Update tier based on total orders
