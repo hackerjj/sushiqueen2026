@@ -201,9 +201,10 @@ El frontend ya está listo para usar estos datos:
 1. ✅ Datos importados
 2. ✅ Rutas API creadas
 3. ✅ Configuración incluida
-4. ⏳ Hacer `git push` para deploy
-5. ⏳ Verificar en Render que funcione
-6. ⏳ Configurar secret de GitHub para auto-deploy
+4. ✅ Frontend actualizado para usar fallback
+5. ✅ Cambios commiteados y pusheados
+6. ⏳ Verificar en Render que funcione
+7. ⏳ Configurar secret de GitHub para auto-deploy (opcional)
 
 ## 🐛 Si Algo No Funciona
 
