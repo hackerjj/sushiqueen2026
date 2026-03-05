@@ -5,13 +5,11 @@ vendor/
 # Environment files
 .env
 .env.local
-.env.production
 .env.staging
 
 # Build outputs
-dist/
 build/
-frontend/dist/
+# frontend/dist/ is NOT ignored on deploy-sushiqueen so Hostinger can serve it
 
 # Laravel
 storage/
