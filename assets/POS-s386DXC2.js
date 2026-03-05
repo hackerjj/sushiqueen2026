@@ -1,4 +1,4 @@
-import{j as t}from"./index-Do3IGn0v.js";import{e as Be,r as a}from"./vendor-IyE87Von.js";import{u as Ve}from"./useAuth-jPm6jDYi.js";import{a as P}from"./api-Oxzd_j-s.js";import{m as fe}from"./menuData-SpH9tcNn.js";import"./state-DTbPobMn.js";const Ze=`Sushi Queen
+import{j as t}from"./index-C_YEmQFD.js";import{e as Be,r as a}from"./vendor-IyE87Von.js";import{u as Ve}from"./useAuth-jPm6jDYi.js";import{a as P}from"./api-Oxzd_j-s.js";import{m as fe}from"./menuData-SpH9tcNn.js";import"./state-DTbPobMn.js";const Ze=`Sushi Queen
 Jose Tomas Cuellar 39 Loc. 1-C
 Edna Garcia
 RFC: GAGE620314GG02
