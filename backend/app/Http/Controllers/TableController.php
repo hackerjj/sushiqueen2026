@@ -23,6 +23,8 @@ class TableController extends Controller
             'zone' => 'nullable|string|max:100',
             'position_x' => 'nullable|numeric',
             'position_y' => 'nullable|numeric',
+            'shape' => 'nullable|string|in:square,circle,star',
+            'size' => 'nullable|string|in:small,medium,large',
         ]);
 
         $validated['status'] = 'free';
@@ -40,6 +42,8 @@ class TableController extends Controller
             'zone' => 'nullable|string|max:100',
             'position_x' => 'nullable|numeric',
             'position_y' => 'nullable|numeric',
+            'shape' => 'nullable|string|in:square,circle,star',
+            'size' => 'nullable|string|in:small,medium,large',
         ]);
 
         $table->update($validated);

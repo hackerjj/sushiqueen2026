@@ -237,17 +237,23 @@ const POS: React.FC = () => {
                   <button key={z} onClick={() => setActiveZone(z)} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeZone === z ? 'bg-white shadow text-gray-900 border' : 'bg-gray-200 text-gray-600'}`}>{z}</button>
                 ))}
               </div>
-              <div className="grid grid-cols-4 gap-4">
-                {zoneTables.map(t => {
-                  const colors: Record<string, string> = { free: 'bg-green-400 text-white', occupied: 'bg-red-400 text-white', reserved: 'bg-blue-400 text-white', billing: 'bg-yellow-400 text-white' };
-                  const sz = t.size === 'large' ? 'w-28 h-28 text-3xl' : t.size === 'small' ? 'w-16 h-16 text-lg' : 'w-20 h-20 text-2xl';
-                  const shape = t.shape === 'circle' ? 'rounded-full' : 'rounded-xl';
-                  return (
-                    <button key={t._id} onClick={() => selectTable(t)} className={`${sz} ${colors[t.status]} ${shape} font-bold flex items-center justify-center hover:scale-105 transition-transform shadow-md`}>
-                      {t.number}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-6 gap-3" style={{ gridTemplateRows: `repeat(4, 1fr)` }}>
+                {Array.from({ length: 4 }).map((_, row) =>
+                  Array.from({ length: 6 }).map((_, col) => {
+                    const t = zoneTables.find(tb => (tb.position_x || 0) === col && (tb.position_y || 0) === row);
+                    if (!t) return <div key={`${row}-${col}`} />;
+                    const colors: Record<string, string> = { free: 'bg-green-400 text-white', occupied: 'bg-red-400 text-white', reserved: 'bg-blue-400 text-white', billing: 'bg-yellow-400 text-white' };
+                    const sz = t.size === 'large' ? 'w-28 h-28 text-3xl' : t.size === 'small' ? 'w-16 h-16 text-lg' : 'w-20 h-20 text-2xl';
+                    const shape = t.shape === 'circle' ? 'rounded-full' : t.shape === 'star' ? 'rounded-xl' : 'rounded-xl';
+                    return (
+                      <div key={`${row}-${col}`} className="flex items-center justify-center">
+                        <button onClick={() => selectTable(t)} className={`${sz} ${colors[t.status]} ${shape} font-bold flex items-center justify-center hover:scale-105 transition-transform shadow-md`}>
+                          {t.number}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
               </div>
               <p className="text-xs text-gray-400 mt-4">Selecciona una mesa para tomar la comanda</p>
             </div>

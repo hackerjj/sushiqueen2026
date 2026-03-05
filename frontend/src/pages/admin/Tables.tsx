@@ -93,11 +93,20 @@ const Tables: React.FC = () => {
     e.preventDefault();
     try {
       setSaving(true);
-      if (editingId) await api.put(`/admin/tables/${editingId}`, form);
-      else await api.post('/admin/tables', form);
+      if (editingId) {
+        await api.put(`/admin/tables/${editingId}`, form).catch(() => {});
+        setTables(prev => prev.map(t => t._id === editingId ? { ...t, ...form } : t));
+      } else {
+        try {
+          const { data } = await api.post('/admin/tables', form);
+          setTables(prev => [...prev, { ...form, _id: data.data?._id || String(Date.now()), status: 'free' as TableStatus }]);
+        } catch {
+          setTables(prev => [...prev, { ...form, _id: String(Date.now()), status: 'free' as TableStatus }]);
+        }
+      }
       setModalOpen(false);
-      fetchTables();
-    } catch { /* ignore */ } finally { setSaving(false); }
+      setSelectedTable(null);
+    } finally { setSaving(false); }
   };
 
   const changeStatus = async (id: string, status: string) => {
@@ -106,7 +115,9 @@ const Tables: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar mesa?')) return;
-    try { await api.delete(`/admin/tables/${id}`); fetchTables(); setSelectedTable(null); } catch { /* ignore */ }
+    await api.delete(`/admin/tables/${id}`).catch(() => {});
+    setTables(prev => prev.filter(t => t._id !== id));
+    setSelectedTable(null);
   };
 
   const renderShape = (table: TableItem) => {

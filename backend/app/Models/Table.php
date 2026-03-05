@@ -18,6 +18,8 @@ class Table extends Model
         'position_x',
         'position_y',
         'zone',
+        'shape',
+        'size',
     ];
 
     protected $casts = [
