@@ -209,7 +209,7 @@ const AdminExpenses: React.FC = () => {
                           {CATEGORIES.find(c => c.value === exp.category)?.label || exp.category}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-gray-600">{exp.date ? new Date(exp.date).toLocaleDateString('es-AR') : '—'}</td>
+                      <td className="px-5 py-3 text-gray-600">{exp.date ? (() => { try { const d = new Date(typeof exp.date === 'string' ? exp.date.replace(' ', 'T') : exp.date); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })() : '—'}</td>
                       <td className="px-5 py-3 text-gray-600 text-xs">
                         {PAYMENT_METHODS.find(p => p.value === exp.payment_method)?.label || exp.payment_method}
                       </td>
