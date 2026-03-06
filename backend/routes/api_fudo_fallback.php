@@ -20,6 +20,23 @@ Route::get('/admin/migrate-fudo', function () {
     try {
         set_time_limit(300);
 
+        // Debug: check what's in collections
+        if ($step === 'debug') {
+            $ingredient = \App\Models\Ingredient::first();
+            $supplier = \App\Models\Supplier::first();
+            $order = \App\Models\Order::first();
+            $cash = \App\Models\CashRegister::first();
+            $customer = \App\Models\Customer::where('total_spent', '>', 0)->first();
+            return response()->json([
+                'ingredient' => $ingredient,
+                'supplier' => $supplier,
+                'order_sample' => $order ? ['_id' => $order->_id, 'order_number' => $order->order_number, 'created_at' => $order->created_at, 'total' => $order->total, 'customer' => $order->customer] : null,
+                'cash_sample' => $cash ? ['_id' => $cash->_id, 'opened_at' => $cash->opened_at, 'system_amount' => $cash->system_amount] : null,
+                'customer_with_spent' => $customer,
+                'counts' => ['orders' => \App\Models\Order::count(), 'customers' => \App\Models\Customer::count(), 'ingredients' => \App\Models\Ingredient::count(), 'suppliers' => \App\Models\Supplier::count(), 'cash' => \App\Models\CashRegister::count()],
+            ]);
+        }
+
         // Fix dates on orders in batches
         if ($step === 'fixdates') {
             $page = intval(request()->query('page', 1));
