@@ -33,34 +33,6 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Create .htaccess in dist
-        run: |
-          cat > frontend/dist/.htaccess << 'HTACCESS'
-          <IfModule mod_rewrite.c>
-              RewriteEngine On
-              RewriteCond %{HTTPS} off
-              RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-              RewriteCond %{REQUEST_URI} ^/api/
-              RewriteRule ^api/(.*)$ api/public/index.php [L,QSA]
-              RewriteCond %{REQUEST_FILENAME} !-f
-              RewriteCond %{REQUEST_FILENAME} !-d
-              RewriteCond %{REQUEST_URI} !^/api/
-              RewriteRule ^ index.html [L]
-          </IfModule>
-          <IfModule mod_deflate.c>
-              AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
-          </IfModule>
-          <IfModule mod_expires.c>
-              ExpiresActive On
-              ExpiresByType text/css "access plus 1 month"
-              ExpiresByType application/javascript "access plus 1 month"
-              ExpiresByType image/png "access plus 1 year"
-              ExpiresByType image/jpeg "access plus 1 year"
-              ExpiresByType image/webp "access plus 1 year"
-              ExpiresByType text/html "access plus 0 seconds"
-          </IfModule>
-          HTACCESS
-
       - name: Deploy ONLY to sushiqueen folder via FTP
         env:
           FTP_HOST: ${{ secrets.FTP_HOST || '191.101.79.184' }}
@@ -70,53 +42,27 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
           
-          echo "🚀 Deploying to /public_html/sushiqueen/ ONLY"
-          echo "⚠️  This will NEVER touch other folders (mealli, ropavejero, sounds, etc.)"
           echo "📦 Build hash check:"
           grep "index-" frontend/dist/index.html
+          
+          echo "🚀 Deploying to /public_html/sushiqueen/ ONLY"
           
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" <<EOF
           set ftp:ssl-allow no
           set net:timeout 60
           set net:max-retries 5
           set net:reconnect-interval-base 5
-          
-          # Debug: show FTP root structure
-          echo "=== FTP ROOT ==="
-          pwd
-          ls -la
-          
-          echo "=== public_html contents ==="
-          ls -la public_html/ || echo "no public_html"
-          
-          echo "=== public_html/sushiqueen contents ==="
-          ls -la public_html/sushiqueen/ || echo "no public_html/sushiqueen"
-          
-          echo "=== domains structure ==="
-          ls -la domains/ || echo "no domains"
-          ls -la domains/galt.com.mx/public_html/sushiqueen/ || echo "no domains/galt.com.mx/public_html/sushiqueen"
-          
-          # Deploy to public_html/sushiqueen (the file manager shows this path)
           cd public_html/sushiqueen
-          echo "=== DEPLOYING TO ==="
-          pwd
-          
-          # Force remove old files
-          rm -f index.html
-          rm -f .htaccess
-          glob rm -f assets/*.js
-          glob rm -f assets/*.css
-          
-          # Upload all new files
-          mirror -R --no-perms --parallel=4 --verbose --exclude images/ frontend/dist/ .
-          
-          echo "=== AFTER DEPLOY ==="
-          ls -la
-          ls -la assets/ || echo "no assets dir"
+          mirror -R --delete --no-perms --parallel=4 --verbose frontend/dist/ .
           bye
           EOF
           
           echo "✅ Files uploaded to /public_html/sushiqueen/ ONLY"
+
+      - name: Trigger Hostinger Git deploy webhook
+        run: |
+          curl -s -X POST "https://webhooks.hostinger.com/deploy/cb54581eecf1c61a37d4dc8c72b67b27" || true
+          echo "✅ Hostinger webhook triggered"
 
       - name: Deployment summary
         run: |
