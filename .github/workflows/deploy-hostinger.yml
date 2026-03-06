@@ -33,6 +33,9 @@ jobs:
           cd frontend
           npm run build
 
+      - name: Copy .htaccess into dist
+        run: cp .deploy-temp/.htaccess frontend/dist/.htaccess
+
       - name: Deploy ONLY to sushiqueen folder via FTP
         env:
           FTP_HOST: ${{ secrets.FTP_HOST || '191.101.79.184' }}
@@ -44,6 +47,8 @@ jobs:
           
           echo "🚀 Deploying to /public_html/sushiqueen/ ONLY"
           echo "⚠️  This will NEVER touch other folders (mealli, ropavejero, sounds, etc.)"
+          echo "📦 Build hash check:"
+          grep "index-" frontend/dist/index.html
           
           lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" <<EOF
           set ftp:ssl-allow no
@@ -52,7 +57,9 @@ jobs:
           set net:reconnect-interval-base 5
           mkdir -p public_html/sushiqueen
           cd public_html/sushiqueen
-          mirror -R --delete --no-perms --parallel=4 --verbose frontend/dist/ .
+          rm -f index.html
+          rm -f .htaccess
+          mirror -R --delete --no-perms --parallel=4 --verbose --exclude images/ frontend/dist/ .
           bye
           EOF
           
