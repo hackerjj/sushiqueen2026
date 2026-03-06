@@ -45,14 +45,11 @@ const Inventory: React.FC = () => {
   const fetchIngredients = useCallback(async () => {
     try {
       setLoading(true);
-      // Try fallback endpoint first
       try {
-        const { data } = await api.get('/admin/ingredients-json');
-        setIngredients(Array.isArray(data.data) ? data.data : []);
-      } catch {
-        // If fallback fails, try MongoDB endpoint
         const { data } = await api.get('/admin/ingredients');
         setIngredients(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        setIngredients([]);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);

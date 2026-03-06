@@ -61,9 +61,8 @@ const Customers: React.FC = () => {
       if (filterTier) params.tier = filterTier;
       if (filterSource) params.source = filterSource;
 
-      // Try fallback endpoint first (JSON data from Fudo)
       try {
-        const { data } = await api.get<PaginatedResponse<Customer>>('/admin/customers-json', { params });
+        const { data } = await api.get<PaginatedResponse<Customer>>('/admin/customers', { params });
         setCustomers(Array.isArray(data.data) ? data.data : []);
         if (data.meta) {
           setTotalPages(data.meta.last_page);
@@ -71,18 +70,7 @@ const Customers: React.FC = () => {
         } else {
           setTotal(Array.isArray(data.data) ? data.data.length : 0);
         }
-        return;
       } catch {
-        // If fallback fails, try MongoDB endpoint
-        const { data } = await api.get<PaginatedResponse<Customer>>('/admin/customers', { params });
-        setCustomers(Array.isArray(data.data) ? data.data : []);
-        if (data.meta) {
-          setTotalPages(data.meta.last_page);
-          setTotal(data.meta.total);
-        }
-      }
-    } catch {
-      // Final fallback: try simple response
       try {
         const { data } = await api.get<ApiResponse<Customer[]>>('/admin/customers');
         setCustomers(Array.isArray(data.data) ? data.data : []);
@@ -98,9 +86,8 @@ const Customers: React.FC = () => {
     setEditMode(false);
     setDetailLoading(true);
     try {
-      // Try fallback endpoint first
       try {
-        const { data } = await api.get<ApiResponse<any>>(`/admin/customers-json/${customer._id}`);
+        const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
         if (data.data) {
           setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
         } else {

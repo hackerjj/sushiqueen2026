@@ -45,7 +45,6 @@ const Delivery: React.FC = () => {
       let fetchedOrders: Order[] = [];
       let fetchedCustomers: Customer[] = [];
 
-      // Try MongoDB endpoints first, fallback to JSON
       try {
         const [ordersRes, customersRes] = await Promise.all([
           api.get('/admin/orders', { params: { type: 'delivery' } }),
@@ -54,17 +53,7 @@ const Delivery: React.FC = () => {
         fetchedOrders = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
         fetchedCustomers = Array.isArray(customersRes.data.data) ? customersRes.data.data : [];
       } catch {
-        // Fallback to JSON endpoints
-        try {
-          const [ordersRes, customersRes] = await Promise.all([
-            api.get('/admin/orders-json', { params: { type: 'delivery' } }),
-            api.get('/admin/customers-json'),
-          ]);
-          fetchedOrders = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
-          fetchedCustomers = Array.isArray(customersRes.data.data) ? customersRes.data.data : [];
-        } catch {
-          /* both failed */
-        }
+        /* failed */
       }
 
       // Filter to delivery orders only (in case backend doesn't filter)

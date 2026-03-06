@@ -129,7 +129,7 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Top Items</h3>
           <div className="space-y-3">
-            {kpis?.top_items?.map((item, i) => (
+            {kpis?.top_items?.filter(item => !item.name.startsWith('Venta #')).map((item, i) => (
               <div key={item.name} className="flex items-center gap-3">
                 <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-sushi-accent' : i === 1 ? 'bg-gray-400' : 'bg-gray-300'}`}>
                   {i + 1}
@@ -138,7 +138,7 @@ const Dashboard: React.FC = () => {
                 <span className="text-sm font-medium text-gray-900">{item.count} uds</span>
               </div>
             ))}
-            {(!kpis?.top_items || kpis.top_items.length === 0) && (
+            {(!kpis?.top_items || kpis.top_items.filter(i => !i.name.startsWith('Venta #')).length === 0) && (
               <p className="text-sm text-gray-400">Sin datos aún</p>
             )}
           </div>
