@@ -26,14 +26,35 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       setConnectionError(null);
-      const [dashRes, ordersRes] = await Promise.all([
-        api.get<ApiResponse<DashboardKPIs>>('/admin/dashboard'),
-        api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 5 } }),
-      ]);
-      const mapped = mapDashboardResponse(dashRes.data.data || dashRes.data);
-      const orders = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
-      const slicedOrders = orders.slice(0, 5);
-      const stock = (dashRes.data as any).data?.low_stock_alerts || (dashRes.data as any).low_stock_alerts || [];
+      let dashData: any = null;
+      let ordersData: Order[] = [];
+
+      // Try primary endpoints
+      try {
+        const [dashRes, ordersRes] = await Promise.all([
+          api.get<ApiResponse<DashboardKPIs>>('/admin/dashboard'),
+          api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 5 } }),
+        ]);
+        dashData = dashRes.data.data || dashRes.data;
+        ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
+      } catch {
+        // Fallback to JSON endpoints
+        try {
+          const [dashRes, ordersRes] = await Promise.all([
+            api.get('/admin/dashboard-json').catch(() => ({ data: { data: {} } })),
+            api.get('/admin/orders-json', { params: { per_page: 5 } }).catch(() => ({ data: { data: [] } })),
+          ]);
+          dashData = dashRes.data.data || dashRes.data || {};
+          ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
+        } catch {
+          dashData = {};
+          ordersData = [];
+        }
+      }
+
+      const mapped = mapDashboardResponse(dashData);
+      const slicedOrders = ordersData.slice(0, 5);
+      const stock = dashData?.low_stock_alerts || [];
 
       setKpis(mapped);
       setRecentOrders(slicedOrders);

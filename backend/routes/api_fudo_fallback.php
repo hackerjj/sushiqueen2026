@@ -166,8 +166,18 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
     ]);
 });
 
-// Productos/Menú desde JSON
+// Productos/Menú — Sushi Queen menu con fotos (fuente de verdad)
 Route::get('/admin/menu-json', function () use ($dataPath) {
+    // Primero intentar el menú curado de Sushi Queen con fotos
+    $sqFile = $dataPath . '/sushi_queen_menu.json';
+    if (file_exists($sqFile)) {
+        $items = json_decode(file_get_contents($sqFile), true);
+        if (is_array($items) && count($items) > 0) {
+            return response()->json(['data' => $items]);
+        }
+    }
+    
+    // Fallback al archivo de Fudo si no existe el curado
     $file = $dataPath . '/productos.json';
     if (!file_exists($file)) {
         return response()->json(['data' => [], 'message' => 'No data'], 404);
@@ -175,18 +185,11 @@ Route::get('/admin/menu-json', function () use ($dataPath) {
     
     $productos = json_decode(file_get_contents($file), true);
     
-    // Agrupar productos únicos por nombre (solo activos)
     $unique = [];
     foreach ($productos as $p) {
-        // Skip if not active
-        if (($p['Activo'] ?? 'No') !== 'Si') {
-            continue;
-        }
-        
+        if (($p['Activo'] ?? 'No') !== 'Si') continue;
         $nombre = $p['Nombre'] ?? '';
-        if (!$nombre || isset($unique[$nombre])) {
-            continue;
-        }
+        if (!$nombre || isset($unique[$nombre])) continue;
         
         $tieneModificadores = ($p['Contiene modificadores'] ?? 'No') === 'Si';
         
