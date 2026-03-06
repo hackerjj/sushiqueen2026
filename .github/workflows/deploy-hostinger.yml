@@ -15,6 +15,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: deploy-sushiqueen
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,41 +34,77 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Deploy ONLY to sushiqueen folder via FTP
-        env:
-          FTP_HOST: ${{ secrets.FTP_HOST || '191.101.79.184' }}
-          FTP_USER: ${{ secrets.FTP_USER || 'u716757676.galt.com.mx' }}
-          FTP_PASS: ${{ secrets.FTP_PASS || '4Irbus0001!' }}
+      - name: Copy built files to repo root for Hostinger
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
+          echo "📦 Copying dist files to repo root..."
           
-          echo "📦 Build hash check:"
-          grep "index-" frontend/dist/index.html
+          # Copy index.html to root
+          cp frontend/dist/index.html ./index.html
           
-          echo "🚀 Deploying to /public_html/sushiqueen/ ONLY"
+          # Copy assets folder
+          rm -rf ./assets
+          cp -r frontend/dist/assets ./assets
           
-          lftp -u "${FTP_USER},${FTP_PASS}" "ftp://${FTP_HOST}" <<EOF
-          set ftp:ssl-allow no
-          set net:timeout 60
-          set net:max-retries 5
-          set net:reconnect-interval-base 5
-          cd public_html/sushiqueen
-          mirror -R --delete --no-perms --parallel=4 --verbose frontend/dist/ .
-          bye
-          EOF
+          # Copy images if they exist in dist
+          if [ -d "frontend/dist/images" ]; then
+            cp -r frontend/dist/images ./images 2>/dev/null || true
+          fi
           
-          echo "✅ Files uploaded to /public_html/sushiqueen/ ONLY"
+          # Create .htaccess for SPA routing
+          cat > .htaccess << 'HTACCESS'
+          <IfModule mod_rewrite.c>
+              RewriteEngine On
+              RewriteCond %{HTTPS} off
+              RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+              RewriteCond %{REQUEST_URI} ^/api/
+              RewriteRule ^api/(.*)$ api/public/index.php [L,QSA]
+              RewriteCond %{REQUEST_FILENAME} !-f
+              RewriteCond %{REQUEST_FILENAME} !-d
+              RewriteCond %{REQUEST_URI} !^/api/
+              RewriteRule ^ index.html [L]
+          </IfModule>
+          <IfModule mod_deflate.c>
+              AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+          </IfModule>
+          <IfModule mod_expires.c>
+              ExpiresActive On
+              ExpiresByType text/css "access plus 1 month"
+              ExpiresByType application/javascript "access plus 1 month"
+              ExpiresByType image/png "access plus 1 year"
+              ExpiresByType image/jpeg "access plus 1 year"
+              ExpiresByType image/webp "access plus 1 year"
+              ExpiresByType text/html "access plus 0 seconds"
+          </IfModule>
+          HTACCESS
+          
+          echo "📦 Build hash:"
+          grep "index-" ./index.html
+          echo "✅ Files ready for Hostinger"
 
-      - name: Trigger Hostinger Git deploy webhook
+      - name: Commit and push built files
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html assets/ .htaccess images/ 2>/dev/null || true
+          git add index.html assets/ .htaccess
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "deploy: Update built files for Hostinger [skip ci]"
+            git push origin deploy-sushiqueen
+            echo "✅ Built files pushed to deploy-sushiqueen"
+          fi
+
+      - name: Trigger Hostinger webhook
+        run: |
+          echo "🚀 Triggering Hostinger deploy..."
           curl -s -X POST "https://webhooks.hostinger.com/deploy/cb54581eecf1c61a37d4dc8c72b67b27" || true
           echo "✅ Hostinger webhook triggered"
 
       - name: Deployment summary
         run: |
           echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
-          echo "- **Folder:** /public_html/sushiqueen/" >> $GITHUB_STEP_SUMMARY
+          echo "- **Method:** Git push + Hostinger webhook" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** deploy-sushiqueen" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** https://sushiqueen.galt.com.mx" >> $GITHUB_STEP_SUMMARY
-          echo "- **Safe:** Only sushiqueen folder was modified" >> $GITHUB_STEP_SUMMARY
