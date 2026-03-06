@@ -33,8 +33,33 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Copy .htaccess into dist
-        run: cp .deploy-temp/.htaccess frontend/dist/.htaccess
+      - name: Create .htaccess in dist
+        run: |
+          cat > frontend/dist/.htaccess << 'HTACCESS'
+          <IfModule mod_rewrite.c>
+              RewriteEngine On
+              RewriteCond %{HTTPS} off
+              RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+              RewriteCond %{REQUEST_URI} ^/api/
+              RewriteRule ^api/(.*)$ api/public/index.php [L,QSA]
+              RewriteCond %{REQUEST_FILENAME} !-f
+              RewriteCond %{REQUEST_FILENAME} !-d
+              RewriteCond %{REQUEST_URI} !^/api/
+              RewriteRule ^ index.html [L]
+          </IfModule>
+          <IfModule mod_deflate.c>
+              AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+          </IfModule>
+          <IfModule mod_expires.c>
+              ExpiresActive On
+              ExpiresByType text/css "access plus 1 month"
+              ExpiresByType application/javascript "access plus 1 month"
+              ExpiresByType image/png "access plus 1 year"
+              ExpiresByType image/jpeg "access plus 1 year"
+              ExpiresByType image/webp "access plus 1 year"
+              ExpiresByType text/html "access plus 0 seconds"
+          </IfModule>
+          HTACCESS
 
       - name: Deploy ONLY to sushiqueen folder via FTP
         env:
