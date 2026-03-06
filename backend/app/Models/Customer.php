@@ -23,6 +23,7 @@ class Customer extends Model
         'facebook_id',
         'whatsapp_id',
         'last_order_at',
+        'predominant_order_type',
     ];
 
     protected $casts = [

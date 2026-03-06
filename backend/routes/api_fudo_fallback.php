@@ -79,6 +79,26 @@ Route::get('/admin/migrate-fudo', function () {
             return response()->json(['success' => true, 'step' => 'fixdates_cash', 'fixed' => $fixed, 'next' => 'done']);
         }
 
+        // Create customers from orders that don't exist in customers collection
+        if ($step === 'create_customers') {
+            $page = intval(request()->query('page', 1));
+            $perPage = 500;
+            $orders = \App\Models\Order::whereNotNull('customer.name')->where('customer.name', '!=', '')->skip(($page - 1) * $perPage)->take($perPage)->get();
+            $created = 0;
+            foreach ($orders as $order) {
+                $name = $order->customer['name'] ?? null;
+                if (!$name || strlen($name) < 2) continue;
+                $exists = \App\Models\Customer::where('name', new \MongoDB\BSON\Regex('^' . preg_quote($name, '/') . '$', 'i'))->exists();
+                if (!$exists) {
+                    \App\Models\Customer::create(['name' => $name, 'phone' => $order->customer['phone'] ?? '', 'email' => $order->customer['email'] ?? '', 'address' => '', 'source' => 'fudo', 'tier' => 'regular', 'total_orders' => 0, 'total_spent' => 0, 'preferences' => [], 'ai_profile' => []]);
+                    $created++;
+                }
+            }
+            $totalOrders = \App\Models\Order::count();
+            $hasMore = ($page * $perPage) < $totalOrders;
+            return response()->json(['success' => true, 'step' => 'create_customers', 'created' => $created, 'page' => $page, 'total_orders' => $totalOrders, 'next' => $hasMore ? "create_customers&page=" . ($page + 1) : 'done']);
+        }
+
         if ($step === 'stats') {
             $page = intval(request()->query('page', 1));
             $perPage = 50;
@@ -93,8 +113,25 @@ Route::get('/admin/migrate-fudo', function () {
                         ['$group' => ['_id' => null, 'count' => ['$sum' => 1], 'total' => ['$sum' => '$total'], 'last' => ['$max' => '$created_at']]],
                     ]);
                 })->first();
+                // Get predominant order type
+                $typeStats = \App\Models\Order::raw(function ($col) use ($nameRegex) {
+                    return $col->aggregate([
+                        ['$match' => ['customer.name' => $nameRegex]],
+                        ['$group' => ['_id' => '$type', 'count' => ['$sum' => 1]]],
+                        ['$sort' => ['count' => -1]],
+                        ['$limit' => 1],
+                    ]);
+                })->first();
+                $typeMap = ['dine_in' => 'local', 'takeout' => 'mostrador', 'delivery' => 'delivery'];
+                $predominant = $typeMap[$typeStats['_id'] ?? ''] ?? null;
+
                 if ($stats && ($stats['count'] ?? 0) > 0) {
-                    $customer->update(['total_orders' => $stats['count'], 'total_spent' => round($stats['total'] ?? 0, 2), 'last_order_at' => $stats['last'] ?? null]);
+                    $customer->update([
+                        'total_orders' => $stats['count'],
+                        'total_spent' => round($stats['total'] ?? 0, 2),
+                        'last_order_at' => $stats['last'] ?? null,
+                        'predominant_order_type' => $predominant,
+                    ]);
                 }
                 $updated++;
             }
