@@ -5,6 +5,9 @@ on:
     branches:
       - deploy-sushiqueen
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     name: Deploy Frontend to Hostinger
