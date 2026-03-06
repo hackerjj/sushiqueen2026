@@ -10,6 +10,21 @@ use Illuminate\Http\Request;
 
 $dataPath = storage_path('app/fudo_data');
 
+// Migration route — run from browser after deploy
+Route::get('/admin/migrate-fudo', function () {
+    $secret = request()->query('key');
+    if ($secret !== 'sushiqueen2026migrate') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+    try {
+        \Illuminate\Support\Facades\Artisan::call('fudo:migrate', ['--fresh' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json(['success' => true, 'output' => $output]);
+    } catch (\Throwable $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+    }
+});
+
 // Clientes desde JSON
 Route::get('/admin/customers-json', function () use ($dataPath) {
     $clientesFile = $dataPath . '/clientes.json';
