@@ -56,7 +56,7 @@ const Customers: React.FC = () => {
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, string | number> = { page, per_page: 15 };
+      const params: Record<string, string | number> = { page, per_page: 50 };
       if (search) params.search = search;
       if (filterTier) params.tier = filterTier;
       if (filterSource) params.source = filterSource;
@@ -211,7 +211,7 @@ const Customers: React.FC = () => {
                   <td className="px-5 py-3 text-gray-900 font-medium">{c.total_orders}</td>
                   <td className="px-5 py-3 text-gray-900">{formatCurrency(c.total_spent)}</td>
                   <td className="px-5 py-3 text-gray-500 text-xs">
-                    {c.last_order_at ? new Date(c.last_order_at).toLocaleDateString('es-AR') : '—'}
+                    {c.last_order_at ? (() => { try { const d = typeof c.last_order_at === 'string' ? new Date(c.last_order_at.replace(' ', 'T')) : (c.last_order_at?.$date ? new Date(parseInt(c.last_order_at.$date.$numberLong || c.last_order_at.$date)) : new Date(c.last_order_at)); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })() : '—'}
                   </td>
                 </tr>
               ))}
@@ -334,7 +334,7 @@ const Customers: React.FC = () => {
                       <p><span className="text-gray-500">Teléfono:</span> <span className="text-gray-900">{detail.phone}</span></p>
                       <p><span className="text-gray-500">Dirección:</span> <span className="text-gray-900">{detail.address || '—'}</span></p>
                       {detail.last_order_at && (
-                        <p><span className="text-gray-500">Última orden:</span> <span className="text-gray-900">{new Date(detail.last_order_at).toLocaleDateString('es-AR')}</span></p>
+                        <p><span className="text-gray-500">Última orden:</span> <span className="text-gray-900">{(() => { try { const d = typeof detail.last_order_at === 'string' ? new Date(detail.last_order_at.replace(' ', 'T')) : new Date(detail.last_order_at); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })()}</span></p>
                       )}
                     </div>
                   </div>
