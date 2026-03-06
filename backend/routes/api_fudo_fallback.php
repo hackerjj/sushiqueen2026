@@ -71,6 +71,57 @@ Route::get('/admin/customers-json', function () use ($dataPath) {
     return response()->json(['data' => $transformed]);
 });
 
+// Dashboard KPIs desde JSON de ventas
+Route::get('/admin/dashboard-json', function () use ($dataPath) {
+    $file = $dataPath . '/ventas.json';
+    if (!file_exists($file)) {
+        return response()->json(['data' => [
+            'sales_today' => 0, 'sales_week' => 0, 'sales_month' => 0,
+            'orders_today' => 0, 'orders_week' => 0, 'new_customers_week' => 0, 'top_items' => [],
+        ]]);
+    }
+    
+    $ventas = json_decode(file_get_contents($file), true);
+    $now = new \DateTime();
+    $todayStr = $now->format('Y-m-d');
+    $weekAgo = (clone $now)->modify('-7 days');
+    $monthStart = new \DateTime($now->format('Y-m-01'));
+    
+    $salesToday = 0; $salesWeek = 0; $salesMonth = 0;
+    $ordersToday = 0; $ordersWeek = 0;
+    $customers = [];
+    
+    foreach ($ventas as $v) {
+        if (!isset($v['Desde']) || !is_numeric($v['Desde'])) continue;
+        $total = floatval($v['Unnamed: 12'] ?? 0);
+        if ($total <= 0) continue;
+        
+        $creacion = $v['Unnamed: 2'] ?? $v['01/01/2021 00:00'] ?? null;
+        if (!$creacion) continue;
+        
+        try {
+            $fecha = new \DateTime($creacion);
+        } catch (\Exception $e) { continue; }
+        
+        if ($fecha->format('Y-m-d') === $todayStr) { $salesToday += $total; $ordersToday++; }
+        if ($fecha >= $weekAgo) { $salesWeek += $total; $ordersWeek++; }
+        if ($fecha >= $monthStart) { $salesMonth += $total; }
+        
+        $cliente = $v['Unnamed: 6'] ?? null;
+        if ($cliente && $fecha >= $weekAgo) { $customers[$cliente] = true; }
+    }
+    
+    return response()->json(['data' => [
+        'sales_today' => round($salesToday),
+        'sales_week' => round($salesWeek),
+        'sales_month' => round($salesMonth),
+        'orders_today' => $ordersToday,
+        'orders_week' => $ordersWeek,
+        'new_customers_week' => count($customers),
+        'top_items' => [],
+    ]]);
+});
+
 // Ventas/Órdenes desde JSON
 Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
     $file = $dataPath . '/ventas.json';

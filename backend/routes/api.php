@@ -114,6 +114,7 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::post('/insights/track', [InsightsController::class, 'track']);
 
     // Cash Register (Caja)
+    Route::get('/cash-register', [CashRegisterController::class, 'index']);
     Route::get('/cash-register/current', [CashRegisterController::class, 'current']);
     Route::post('/cash-register/open', [CashRegisterController::class, 'open']);
     Route::post('/cash-register/close', [CashRegisterController::class, 'close']);
@@ -209,3 +210,19 @@ Route::prefix('webhooks')->group(function () {
 if (file_exists(__DIR__ . '/api_fudo_fallback.php')) {
     require __DIR__ . '/api_fudo_fallback.php';
 }
+
+// ─── Migration route (run from browser) ─────────────────────────
+Route::get('/migrate-fudo', function () {
+    $secret = request()->query('key');
+    if ($secret !== 'sushiqueen2026migrate') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('fudo:migrate', ['--fresh' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json(['success' => true, 'output' => $output]);
+    } catch (\Throwable $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+});

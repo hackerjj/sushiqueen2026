@@ -135,4 +135,23 @@ class CashRegisterController extends Controller
         $registers = CashRegister::orderBy('opened_at', 'desc')->limit(30)->get();
         return response()->json(['data' => $registers]);
     }
+
+    public function index(Request $request): JsonResponse
+    {
+        $query = CashRegister::query();
+
+        if ($request->has('status')) {
+            $status = $request->input('status');
+            $query->where('status', $status === 'cerrado' ? 'closed' : ($status === 'abierto' ? 'open' : $status));
+        }
+
+        if ($request->has('name')) {
+            $query->where('name', $request->input('name'));
+        }
+
+        $registers = $query->orderBy('opened_at', 'desc')
+            ->paginate($request->input('per_page', 50));
+
+        return response()->json($registers);
+    }
 }

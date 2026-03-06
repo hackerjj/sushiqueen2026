@@ -4,7 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
 import { mapDashboardResponse } from '../../utils/mapDashboardResponse';
-import type { DashboardKPIs, ApiResponse, Order } from '../../types';
+import type { DashboardKPIs, Order } from '../../types';
 
 const DASHBOARD_CACHE_KEY = 'dashboard_cache';
 
@@ -26,68 +26,23 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       setConnectionError(null);
-      let dashData: any = null;
-      let ordersData: Order[] = [];
 
-      // Try primary endpoints
-      try {
-        const [dashRes, ordersRes] = await Promise.all([
-          api.get<ApiResponse<DashboardKPIs>>('/admin/dashboard'),
-          api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 50 } }),
-        ]);
-        dashData = dashRes.data.data || dashRes.data;
-        ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
-      } catch {
-        // Fallback to JSON endpoints
-        try {
-          const [dashRes, ordersRes] = await Promise.all([
-            api.get('/admin/dashboard-json').catch(() => ({ data: { data: {} } })),
-            api.get('/admin/orders-json', { params: { per_page: 50 } }).catch(() => ({ data: { data: [] } })),
-          ]);
-          dashData = dashRes.data.data || dashRes.data || {};
-          ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
-        } catch {
-          dashData = {};
-          ordersData = [];
-        }
-      }
+      const [dashRes, ordersRes] = await Promise.all([
+        api.get('/admin/dashboard'),
+        api.get('/admin/orders', { params: { per_page: 10 } }),
+      ]);
 
-      // Calculate KPIs from orders if dashboard endpoint returned empty
-      let mapped = mapDashboardResponse(dashData);
-      if (mapped.sales_today === 0 && mapped.orders_today === 0 && ordersData.length > 0) {
-        const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
-        const weekAgo = new Date(now.getTime() - 7 * 86400000);
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const todayOrders = ordersData.filter(o => o.created_at?.slice(0, 10) === todayStr);
-        const weekOrders = ordersData.filter(o => new Date(o.created_at) >= weekAgo);
-        const monthOrders = ordersData.filter(o => new Date(o.created_at) >= monthStart);
-        mapped = {
-          sales_today: todayOrders.reduce((s, o) => s + (o.total || 0), 0),
-          sales_week: weekOrders.reduce((s, o) => s + (o.total || 0), 0),
-          sales_month: monthOrders.reduce((s, o) => s + (o.total || 0), 0),
-          orders_today: todayOrders.length,
-          orders_week: weekOrders.length,
-          new_customers_week: 0,
-          top_items: [],
-        };
-      }
-
-      const slicedOrders = ordersData.slice(0, 10);
+      const dashData = dashRes.data.data || dashRes.data;
+      const ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
+      const mapped = mapDashboardResponse(dashData);
       const stock = dashData?.low_stock_alerts || [];
 
       setKpis(mapped);
-      setRecentOrders(slicedOrders);
+      setRecentOrders(ordersData.slice(0, 10));
       setLowStock(stock);
 
-      // Cache successful response
-      try {
-        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ kpis: mapped, recentOrders: slicedOrders, lowStock: stock }));
-      } catch {
-        // localStorage may be full or unavailable
-      }
+      try { localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ kpis: mapped, recentOrders: ordersData.slice(0, 10), lowStock: stock })); } catch { /* */ }
     } catch {
-      // Load cached data on error
       try {
         const cached = localStorage.getItem(DASHBOARD_CACHE_KEY);
         if (cached) {
@@ -97,10 +52,10 @@ const Dashboard: React.FC = () => {
           setLowStock(parsed.lowStock ?? []);
           setConnectionError('Conexión limitada — mostrando datos en caché');
         } else {
-          setConnectionError('Conexión limitada — sin datos disponibles');
+          setConnectionError('Sin conexión a la base de datos');
         }
       } catch {
-        setConnectionError('Conexión limitada — sin datos disponibles');
+        setConnectionError('Sin conexión a la base de datos');
       }
     } finally {
       setLoading(false);

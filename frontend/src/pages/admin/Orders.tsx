@@ -116,32 +116,40 @@ const Orders: React.FC = () => {
     try {
       setLoading(true);
       const params: Record<string, string | number> = { page, per_page: perPage };
+      if (selectedCustomer) { params.customer_name = selectedCustomer.name; }
 
-      if (selectedCustomer) {
-        params.customer_id = selectedCustomer._id;
-      }
-      
-      try {
-        const { data } = await api.get('/admin/orders-json', {
-          params: selectedCustomer
-            ? { ...params, customer_name: selectedCustomer.name }
-            : params,
-        });
-        const list = Array.isArray(data.data) ? data.data : [];
-        setVentas(list);
-        const meta = data.meta;
-        if (meta) {
-          setTotalPages(meta.last_page || 1);
-          setTotalVentas(meta.total || list.length);
-        } else {
-          setTotalVentas(list.length);
+      const { data } = await api.get('/admin/orders', { params });
+      const list = Array.isArray(data.data) ? data.data : [];
+
+      // Map MongoDB order format to Venta format
+      const mapped: Venta[] = list.map((o: any) => {
+        let deliveryTime: number | null = null;
+        if (o.created_at && o.closed_at) {
+          const diff = (new Date(o.closed_at).getTime() - new Date(o.created_at).getTime()) / 60000;
+          if (diff > 0 && diff < 1440) deliveryTime = Math.round(diff);
         }
-      } catch {
-        const { data } = await api.get('/admin/orders', { params });
-        const list = Array.isArray(data.data) ? data.data : [];
-        setVentas(list);
-        setTotalVentas(list.length);
-      }
+        if (o.delivery_time_min) deliveryTime = o.delivery_time_min;
+
+        const typeMap: Record<string, string> = { dine_in: 'Local', takeout: 'Mostrador', delivery: 'Delivery' };
+        return {
+          _id: o._id,
+          order_number: o.order_number || 0,
+          created_at: o.created_at,
+          closed_at: o.closed_at || o.updated_at,
+          delivery_time_min: deliveryTime,
+          customer_name: o.customer?.name || o.customer_name || null,
+          type: typeMap[o.type] || o.type || o.channel || '—',
+          total: o.total || 0,
+          payment_method: o.payment_method || '',
+          source: o.source || '',
+          status: o.status || '',
+        };
+      });
+
+      setVentas(mapped);
+      const meta = data.meta;
+      if (meta) { setTotalPages(meta.last_page || 1); setTotalVentas(meta.total || mapped.length); }
+      else { setTotalVentas(mapped.length); }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [page, perPage, selectedCustomer]);
 

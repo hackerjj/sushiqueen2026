@@ -218,8 +218,20 @@ class OrderController extends Controller
                 $query->where('source', $request->input('source'));
             }
 
+            if ($request->has('type')) {
+                $query->where('type', $request->input('type'));
+            }
+
+            if ($request->has('channel')) {
+                $query->where('channel', $request->input('channel'));
+            }
+
             if ($request->has('customer_id')) {
                 $query->where('customer_id', $request->input('customer_id'));
+            }
+
+            if ($request->has('customer_name')) {
+                $query->where('customer.name', 'regex', new \MongoDB\BSON\Regex($request->input('customer_name'), 'i'));
             }
 
             if ($request->has('from')) {
@@ -245,9 +257,11 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
 
         $validated = $request->validate([
-            'status' => 'required|string|in:pending,confirmed,preparing,ready,delivered,cancelled',
+            'status' => 'required|string|in:pending,confirmed,preparing,ready,delivering,delivered,cancelled',
             'fudo_order_id' => 'nullable|string',
             'notes' => 'nullable|string',
+            'payment_method' => 'nullable|string',
+            'tip' => 'nullable|numeric',
         ]);
 
         $previousStatus = $order->status;

@@ -20,12 +20,18 @@ class CashRegister extends Model
         'status',
         'movements',
         'summary',
+        'system_amount',
+        'user_amount',
+        'difference',
     ];
 
     protected $casts = [
         'initial_amount' => 'float',
         'expected_amount' => 'float',
         'actual_amount' => 'float',
+        'system_amount' => 'float',
+        'user_amount' => 'float',
+        'difference' => 'float',
         'movements' => 'array',
         'summary' => 'array',
     ];
