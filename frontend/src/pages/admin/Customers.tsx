@@ -16,6 +16,18 @@ const tierLabels: Record<string, string> = {
   new: 'Nuevo', regular: 'Regular', gold: 'Gold', vip: 'VIP',
 };
 
+const orderTypeLabels: Record<string, string> = {
+  local: 'Local',
+  delivery: 'Delivery',
+  app: 'App',
+};
+
+const orderTypeColors: Record<string, string> = {
+  local: 'bg-green-100 text-green-700',
+  delivery: 'bg-blue-100 text-blue-700',
+  app: 'bg-purple-100 text-purple-700',
+};
+
 interface CustomerDetail extends Customer {
   orders?: Order[];
 }
@@ -180,7 +192,7 @@ const Customers: React.FC = () => {
                 <th className="px-5 py-3 font-medium">Cliente</th>
                 <th className="px-5 py-3 font-medium">Teléfono</th>
                 <th className="px-5 py-3 font-medium">Tier</th>
-                <th className="px-5 py-3 font-medium">Fuente</th>
+                <th className="px-5 py-3 font-medium">Tipo Predominante</th>
                 <th className="px-5 py-3 font-medium">Órdenes</th>
                 <th className="px-5 py-3 font-medium">Total Gastado</th>
                 <th className="px-5 py-3 font-medium">Última Orden</th>
@@ -199,7 +211,15 @@ const Customers: React.FC = () => {
                       {tierLabels[c.tier] || c.tier}
                     </span>
                   </td>
-                  <td className="px-5 py-3 capitalize text-gray-600">{c.source}</td>
+                  <td className="px-5 py-3 capitalize text-gray-600">
+                    {c.predominant_order_type ? (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${orderTypeColors[c.predominant_order_type] || 'bg-gray-100 text-gray-600'}`}>
+                        {orderTypeLabels[c.predominant_order_type] || c.predominant_order_type}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-gray-900 font-medium">{c.total_orders}</td>
                   <td className="px-5 py-3 text-gray-900">{formatCurrency(c.total_spent)}</td>
                   <td className="px-5 py-3 text-gray-500 text-xs">
@@ -292,6 +312,11 @@ const Customers: React.FC = () => {
                             {tierLabels[detail.tier] || detail.tier}
                           </span>
                           <span className="text-xs text-gray-400 capitalize">{detail.source}</span>
+                          {detail.predominant_order_type && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${orderTypeColors[detail.predominant_order_type] || 'bg-gray-100 text-gray-600'}`}>
+                              {orderTypeLabels[detail.predominant_order_type] || detail.predominant_order_type}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

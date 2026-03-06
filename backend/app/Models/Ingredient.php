@@ -17,6 +17,8 @@ class Ingredient extends Model
         'cost_per_unit',
         'supplier_id',
         'category',
+        'fudo_id',
+        'stock_control',
     ];
 
     protected $casts = [

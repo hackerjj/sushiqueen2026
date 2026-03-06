@@ -133,6 +133,14 @@ Route::get('/admin/orders-json', function (Request $request) use ($dataPath) {
         ];
     }
     
+    // Filtrar por nombre de cliente si se proporciona customer_name
+    if ($customerName = $request->input('customer_name')) {
+        $transformed = array_filter($transformed, function ($v) use ($customerName) {
+            return $v['customer_name'] && stripos($v['customer_name'], $customerName) !== false;
+        });
+        $transformed = array_values($transformed);
+    }
+
     // Ordenar por fecha de creación descendente (más recientes primero)
     usort($transformed, function($a, $b) {
         return strcmp($b['created_at'] ?? '', $a['created_at'] ?? '');

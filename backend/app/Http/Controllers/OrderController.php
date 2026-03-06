@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\OrderCreated;
+use App\Events\OrderUpdated;
 use App\Models\Customer;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -168,6 +170,16 @@ class OrderController extends Controller
             $fudoResponse = ['error' => 'Fudo sync failed: ' . $e->getMessage()];
         }
 
+        // Broadcast order created event for KDS real-time updates
+        try {
+            event(new OrderCreated($order->fresh()));
+        } catch (\Throwable $e) {
+            Log::warning('OrderController: Failed to broadcast OrderCreated event', [
+                'order_id' => (string) $order->_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return response()->json([
             'message' => 'Order created successfully',
             'data' => $order->load('customer'),
@@ -195,30 +207,34 @@ class OrderController extends Controller
      * List all orders with filters (admin).
      */
     public function index(Request $request): JsonResponse
-    {
-        $query = Order::query();
+        {
+            $query = Order::query();
 
-        if ($request->has('status')) {
-            $query->where('status', $request->input('status'));
+            if ($request->has('status')) {
+                $query->where('status', $request->input('status'));
+            }
+
+            if ($request->has('source')) {
+                $query->where('source', $request->input('source'));
+            }
+
+            if ($request->has('customer_id')) {
+                $query->where('customer_id', $request->input('customer_id'));
+            }
+
+            if ($request->has('from')) {
+                $query->where('created_at', '>=', Carbon::parse($request->input('from')));
+            }
+
+            if ($request->has('to')) {
+                $query->where('created_at', '<=', Carbon::parse($request->input('to')));
+            }
+
+            $orders = $query->orderBy('created_at', 'desc')
+                ->paginate($request->input('per_page', 20));
+
+            return response()->json($orders);
         }
-
-        if ($request->has('source')) {
-            $query->where('source', $request->input('source'));
-        }
-
-        if ($request->has('from')) {
-            $query->where('created_at', '>=', Carbon::parse($request->input('from')));
-        }
-
-        if ($request->has('to')) {
-            $query->where('created_at', '<=', Carbon::parse($request->input('to')));
-        }
-
-        $orders = $query->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 20));
-
-        return response()->json($orders);
-    }
 
     /**
      * Update order status (admin).
@@ -245,6 +261,16 @@ class OrderController extends Controller
         // Send WhatsApp notification if status changed
         if ($previousStatus !== $validated['status']) {
             $this->notifyWhatsAppStatusChange($order->fresh());
+
+            // Broadcast order updated event for KDS real-time updates
+            try {
+                event(new OrderUpdated($order->fresh(), $previousStatus));
+            } catch (\Throwable $e) {
+                Log::warning('OrderController: Failed to broadcast OrderUpdated event', [
+                    'order_id' => (string) $order->_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return response()->json([
@@ -309,6 +335,24 @@ class OrderController extends Controller
             'revenue_by_source' => $revenueBySource,
         ]);
     }
+
+    /**
+     * Get kitchen orders (admin/KDS).
+     * Returns only orders with status "confirmed" or "preparing",
+     * sorted by created_at ascending (oldest first).
+     */
+    public function kitchen(): JsonResponse
+    {
+        $orders = Order::whereIn('status', ['confirmed', 'preparing'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $orders,
+        ]);
+    }
+
 
     /**
      * Send WhatsApp notification when order status changes.

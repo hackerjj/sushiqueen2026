@@ -16,5 +16,8 @@ class Supplier extends Model
         'email',
         'address',
         'notes',
+        'fudo_id',
+        'tax_id',
+        'active',
     ];
 }

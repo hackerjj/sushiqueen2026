@@ -1,64 +1,16 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import api from '../../services/api';
-import type { Order, ApiResponse } from '../../types';
+import { useKitchenOrders } from '../../hooks/useKitchenOrders';
 
 const Kitchen: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const prevCountRef = useRef(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { orders, loading, isPolling, updateStatus, markItemPrepared } = useKitchenOrders();
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
-
-  const fetchOrders = useCallback(async () => {
-    try {
-      const { data } = await api.get<ApiResponse<Order[]>>('/admin/orders/kitchen');
-      const list = Array.isArray(data.data) ? data.data : [];
-      // Play sound if new orders arrived
-      if (list.length > prevCountRef.current && prevCountRef.current > 0) {
-        playAlert();
-      }
-      prevCountRef.current = list.length;
-      setOrders(list);
-    } catch { /* ignore */ } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchOrders();
-      const interval = setInterval(fetchOrders, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [fetchOrders, isAuthenticated]);
-
-  const playAlert = () => {
-    try {
-      if (!audioRef.current) {
-        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2JkZeXk4x/cGRcW2N0hJOdoZ2Ui3tnVk1OWm+ImKWmoJOEcl1PR1Bkf5ijn5mNfGlXTk5cdIqcpqSbjHtmVExOX3aOoKajmYl3YlNOVGh+k6KlnpGBbVtTVGJ3jJ2ko5mKd2NWUlhpgJWipJ2QgG1cVlhkd4ycoJ2UiHhrXVlcaH2Pmp+bk4Z2ZVxaYW5+jZiclI2CdGZeXGNufI2Yl5KLgHJlX15ka3qKlJiUjoN2aWJgZWx5h5GVk46DdmliYGVseYeRlZOOg3ZpYmBla3mHkZWTjoN2aWJgZWt5h5GVk46DdmliYA==');
-      }
-      audioRef.current.play().catch(() => {});
-    } catch { /* ignore */ }
-  };
-
-  const updateStatus = async (orderId: string, status: string) => {
-    try {
-      await api.patch(`/admin/orders/${orderId}`, { status });
-      fetchOrders();
-    } catch { /* ignore */ }
-  };
-
-  const markItemPrepared = async (orderId: string, itemIndex: number) => {
-    try {
-      await api.patch(`/admin/orders/${orderId}/items/${itemIndex}/prepared`, { item_index: itemIndex });
-      fetchOrders();
-    } catch { /* ignore */ }
-  };
 
   const getElapsedTime = (createdAt: string) => {
     const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -85,6 +37,14 @@ const Kitchen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
+      {/* Polling mode indicator */}
+      {isPolling && (
+        <div className="bg-yellow-900/50 border border-yellow-600/50 text-yellow-300 px-4 py-2 rounded-lg mb-4 text-sm flex items-center gap-2">
+          <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+          Modo offline — actualizando cada 5s
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

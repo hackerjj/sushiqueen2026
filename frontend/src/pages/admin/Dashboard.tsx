@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
+import { mapDashboardResponse } from '../../utils/mapDashboardResponse';
 import type { DashboardKPIs, ApiResponse, Order } from '../../types';
+
+const DASHBOARD_CACHE_KEY = 'dashboard_cache';
 
 const Dashboard: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -12,6 +15,7 @@ const Dashboard: React.FC = () => {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [lowStock, setLowStock] = useState<{ name: string; current_stock: number; min_stock: number; unit: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
@@ -21,16 +25,42 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setConnectionError(null);
       const [dashRes, ordersRes] = await Promise.all([
         api.get<ApiResponse<DashboardKPIs>>('/admin/dashboard'),
         api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 5 } }),
       ]);
-      setKpis(dashRes.data.data);
+      const mapped = mapDashboardResponse(dashRes.data.data || dashRes.data);
       const orders = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
-      setRecentOrders(orders.slice(0, 5));
-      setLowStock((dashRes.data as any).data?.low_stock_alerts || (dashRes.data as any).low_stock_alerts || []);
+      const slicedOrders = orders.slice(0, 5);
+      const stock = (dashRes.data as any).data?.low_stock_alerts || (dashRes.data as any).low_stock_alerts || [];
+
+      setKpis(mapped);
+      setRecentOrders(slicedOrders);
+      setLowStock(stock);
+
+      // Cache successful response
+      try {
+        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ kpis: mapped, recentOrders: slicedOrders, lowStock: stock }));
+      } catch {
+        // localStorage may be full or unavailable
+      }
     } catch {
-      // silently handle
+      // Load cached data on error
+      try {
+        const cached = localStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setKpis(parsed.kpis ?? null);
+          setRecentOrders(parsed.recentOrders ?? []);
+          setLowStock(parsed.lowStock ?? []);
+          setConnectionError('Conexión limitada — mostrando datos en caché');
+        } else {
+          setConnectionError('Conexión limitada — sin datos disponibles');
+        }
+      } catch {
+        setConnectionError('Conexión limitada — sin datos disponibles');
+      }
     } finally {
       setLoading(false);
     }
@@ -71,6 +101,14 @@ const Dashboard: React.FC = () => {
 
   return (
     <AdminLayout title="Dashboard">
+      {connectionError && (
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm font-medium">{connectionError}</span>
+        </div>
+      )}
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {kpiCards.map((card) => (

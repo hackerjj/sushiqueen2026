@@ -45,7 +45,7 @@ class PromotionController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'discount_type' => 'required|string|in:percentage,fixed,2x1',
+            'discount_type' => 'required|string|in:percentage,fixed,2x1,bogo',
             'discount_value' => 'required|numeric|min:0',
             'applicable_items' => 'nullable|array',
             'image_url' => 'nullable|string',
@@ -77,7 +77,7 @@ class PromotionController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'discount_type' => 'sometimes|string|in:percentage,fixed,2x1',
+            'discount_type' => 'sometimes|string|in:percentage,fixed,2x1,bogo',
             'discount_value' => 'sometimes|numeric|min:0',
             'applicable_items' => 'nullable|array',
             'image_url' => 'nullable|string',

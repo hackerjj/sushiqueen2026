@@ -148,6 +148,7 @@ export interface Customer {
   whatsapp_id?: string;
   created_at: string;
   last_order_at?: string;
+  predominant_order_type?: 'local' | 'delivery' | 'app' | null;
 }
 
 // --- Promotions ---
@@ -203,6 +204,24 @@ export interface CashRegister {
     total_expenses: number;
     total_withdrawals: number;
   };
+}
+
+// --- Expenses ---
+
+export type ExpenseCategory = 'ingredientes' | 'servicios' | 'personal' | 'alquiler' | 'marketing' | 'otros';
+
+export interface Expense {
+  _id: string;
+  description: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: string;
+  payment_method: PaymentMethod;
+  receipt_url?: string;
+  notes?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // --- Dashboard / Insights ---

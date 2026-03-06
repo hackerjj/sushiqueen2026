@@ -26,6 +26,7 @@ const Suppliers = lazy(() => import('./pages/admin/Suppliers'));
 const Tables = lazy(() => import('./pages/admin/Tables'));
 const Recipes = lazy(() => import('./pages/admin/Recipes'));
 const Reports = lazy(() => import('./pages/admin/Reports'));
+const Expenses = lazy(() => import('./pages/admin/Expenses'));
 
 const Loading: React.FC = () => (
   <div className="flex items-center justify-center min-h-screen bg-sushi-bg">
@@ -67,6 +68,7 @@ const App: React.FC = () => {
         <Route path="/admin/tables" element={<Tables />} />
         <Route path="/admin/recipes" element={<Recipes />} />
         <Route path="/admin/reports" element={<Reports />} />
+        <Route path="/admin/expenses" element={<Expenses />} />
       </Routes>
     </Suspense>
   );

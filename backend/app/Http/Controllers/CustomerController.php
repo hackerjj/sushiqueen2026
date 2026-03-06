@@ -12,6 +12,7 @@ class CustomerController extends Controller
 {
     /**
      * List customers with pagination, search, filter by tier/source (admin).
+     * Computes total_orders, total_spent, last_order_at, and predominant_order_type from orders.
      */
     public function index(Request $request): JsonResponse
     {
@@ -36,7 +37,85 @@ class CustomerController extends Controller
         $customers = $query->orderBy('total_spent', 'desc')
             ->paginate($request->input('per_page', 20));
 
+        // Compute metrics from orders for each customer
+        $customerIds = collect($customers->items())->pluck('_id')->map(fn ($id) => (string) $id)->toArray();
+
+        // Aggregate order metrics per customer in a single query
+        $orderMetrics = Order::raw(function ($collection) use ($customerIds) {
+            return $collection->aggregate([
+                ['$match' => ['customer_id' => ['$in' => $customerIds]]],
+                ['$group' => [
+                    '_id' => '$customer_id',
+                    'total_orders' => ['$sum' => 1],
+                    'total_spent' => ['$sum' => ['$ifNull' => ['$total', 0]]],
+                    'last_order_at' => ['$max' => '$created_at'],
+                    'types' => ['$push' => '$type'],
+                    'sources' => ['$push' => '$source'],
+                ]],
+            ]);
+        });
+
+        $metricsMap = [];
+        foreach ($orderMetrics as $m) {
+            $metricsMap[(string) $m->_id] = $m;
+        }
+
+        // Transform paginated results to include computed metrics
+        $customers->getCollection()->transform(function ($customer) use ($metricsMap) {
+            $id = (string) $customer->_id;
+            $metrics = $metricsMap[$id] ?? null;
+
+            if ($metrics) {
+                $customer->total_orders = $metrics->total_orders;
+                $customer->total_spent = $metrics->total_spent;
+                $customer->last_order_at = $metrics->last_order_at;
+                $customer->predominant_order_type = $this->computePredominantOrderType(
+                    is_array($metrics->types) ? $metrics->types : iterator_to_array($metrics->types ?? []),
+                    is_array($metrics->sources) ? $metrics->sources : iterator_to_array($metrics->sources ?? [])
+                );
+            } else {
+                $customer->total_orders = $customer->total_orders ?? 0;
+                $customer->total_spent = $customer->total_spent ?? 0;
+                $customer->predominant_order_type = null;
+            }
+
+            return $customer;
+        });
+
         return response()->json($customers);
+    }
+
+    /**
+     * Compute the predominant order type for a customer.
+     * Maps order types/sources to: local, delivery, app.
+     *   - dine_in, takeout, counter, express → local
+     *   - delivery → delivery
+     *   - source web/whatsapp/facebook (non-pos) → app
+     */
+    private function computePredominantOrderType(array $types, array $sources): ?string
+    {
+        $counts = ['local' => 0, 'delivery' => 0, 'app' => 0];
+
+        foreach ($types as $i => $type) {
+            $source = $sources[$i] ?? 'pos';
+
+            if ($type === 'delivery') {
+                $counts['delivery']++;
+            } elseif (in_array($source, ['web', 'whatsapp', 'facebook'])) {
+                $counts['app']++;
+            } else {
+                $counts['local']++;
+            }
+        }
+
+        $total = array_sum($counts);
+        if ($total === 0) {
+            return null;
+        }
+
+        // Return the type with the highest count
+        arsort($counts);
+        return array_key_first($counts);
     }
 
     /**

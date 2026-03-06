@@ -4,11 +4,13 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CashRegisterController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\InsightsController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PromotionController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TableController;
@@ -79,8 +81,11 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
 
     // Menu CRUD
     Route::get('/menu', [MenuController::class, 'index']);
+    Route::get('/menu/export-csv', [MenuController::class, 'exportCsv']);
+    Route::post('/menu/import-csv', [MenuController::class, 'importCsv']);
     Route::post('/menu', [MenuController::class, 'store']);
     Route::put('/menu/{id}', [MenuController::class, 'update']);
+    Route::post('/menu/{id}/image', [MenuController::class, 'uploadImage']);
     Route::delete('/menu/{id}', [MenuController::class, 'destroy']);
 
     // Promotions CRUD
@@ -104,6 +109,8 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
 
     // Insights / Analytics
     Route::get('/insights', [InsightsController::class, 'index']);
+    Route::get('/insights/reviews', [InsightsController::class, 'reviews']);
+    Route::get('/insights/sales-trends', [InsightsController::class, 'salesTrends']);
     Route::post('/insights/track', [InsightsController::class, 'track']);
 
     // Cash Register (Caja)
@@ -121,6 +128,7 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::post('/inventory/movement', [InventoryController::class, 'addMovement']);
     Route::get('/inventory/movements', [InventoryController::class, 'movements']);
     Route::get('/inventory/low-stock', [InventoryController::class, 'lowStockAlerts']);
+    Route::post('/inventory/import-fudo', [InventoryController::class, 'importFudo']);
 
     // Recipes
     Route::get('/recipes', [RecipeController::class, 'index']);
@@ -141,6 +149,19 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::put('/tables/{id}', [TableController::class, 'update']);
     Route::patch('/tables/{id}/status', [TableController::class, 'updateStatus']);
     Route::delete('/tables/{id}', [TableController::class, 'destroy']);
+
+    // Expenses
+    Route::get('/expenses', [ExpenseController::class, 'index']);
+    Route::get('/expenses/summary', [ExpenseController::class, 'summary']);
+    Route::post('/expenses', [ExpenseController::class, 'store']);
+    Route::put('/expenses/{id}', [ExpenseController::class, 'update']);
+    Route::delete('/expenses/{id}', [ExpenseController::class, 'destroy']);
+
+    // Reports
+    Route::get('/reports/sales', [ReportController::class, 'salesReport']);
+    Route::get('/reports/customers', [ReportController::class, 'customerReport']);
+    Route::get('/reports/products', [ReportController::class, 'productReport']);
+    Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
 });
 
 // ─── WhatsApp Integration (JWT Protected) ───────────────────────

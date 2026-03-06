@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,11 +11,18 @@ interface Venta {
   closed_at: string | null;
   delivery_time_min: number | null;
   customer_name: string | null;
+  customer_id?: string | null;
   type: string;
   total: number;
   payment_method: string;
   source: string;
   status: string;
+}
+
+interface CustomerOption {
+  _id: string;
+  name: string;
+  phone: string;
 }
 
 type SortField = 'created_at' | 'order_number';
@@ -33,17 +40,93 @@ const Orders: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  // Customer filter state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Search customers as user types
+  const searchCustomers = useCallback(async (term: string) => {
+    if (term.length < 2) {
+      setCustomerOptions([]);
+      setShowDropdown(false);
+      return;
+    }
+    setSearchingCustomers(true);
+    try {
+      const { data } = await api.get('/admin/customers', { params: { search: term, per_page: 10 } });
+      const list: CustomerOption[] = (Array.isArray(data.data) ? data.data : []).map((c: any) => ({
+        _id: c._id,
+        name: c.name || '',
+        phone: c.phone || '',
+      }));
+      setCustomerOptions(list);
+      setShowDropdown(list.length > 0);
+    } catch {
+      setCustomerOptions([]);
+    } finally {
+      setSearchingCustomers(false);
+    }
+  }, []);
+
+  const handleCustomerSearchChange = (value: string) => {
+    setCustomerSearch(value);
+    if (selectedCustomer) {
+      setSelectedCustomer(null);
+    }
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => searchCustomers(value), 300);
+  };
+
+  const handleSelectCustomer = (customer: CustomerOption) => {
+    setSelectedCustomer(customer);
+    setCustomerSearch(customer.name);
+    setShowDropdown(false);
+    setPage(1);
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setCustomerOptions([]);
+    setShowDropdown(false);
+    setPage(1);
+  };
 
   const fetchVentas = useCallback(async () => {
     try {
       setLoading(true);
       const params: Record<string, string | number> = { page, per_page: perPage };
+
+      if (selectedCustomer) {
+        params.customer_id = selectedCustomer._id;
+      }
       
       try {
-        const { data } = await api.get('/admin/orders-json', { params });
+        const { data } = await api.get('/admin/orders-json', {
+          params: selectedCustomer
+            ? { ...params, customer_name: selectedCustomer.name }
+            : params,
+        });
         const list = Array.isArray(data.data) ? data.data : [];
         setVentas(list);
         const meta = data.meta;
@@ -60,7 +143,7 @@ const Orders: React.FC = () => {
         setTotalVentas(list.length);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [page, perPage]);
+  }, [page, perPage, selectedCustomer]);
 
   useEffect(() => { if (isAuthenticated) fetchVentas(); }, [fetchVentas, isAuthenticated]);
 
@@ -76,6 +159,9 @@ const Orders: React.FC = () => {
     }
     return 0;
   });
+
+  // Calculate accumulated total for filtered results
+  const totalAcumulado = ventas.reduce((sum, v) => sum + (v.total || 0), 0);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -113,6 +199,46 @@ const Orders: React.FC = () => {
     <AdminLayout title="Gestión de Ventas">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Customer search filter */}
+        <div className="relative" ref={dropdownRef}>
+          <label className="text-sm text-gray-500 mr-1">Cliente:</label>
+          <div className="inline-flex items-center">
+            <input
+              type="text"
+              value={customerSearch}
+              onChange={(e) => handleCustomerSearchChange(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none w-52"
+            />
+            {(selectedCustomer || customerSearch) && (
+              <button
+                onClick={handleClearCustomer}
+                className="ml-1 text-gray-400 hover:text-gray-600 text-sm"
+                title="Limpiar filtro"
+              >
+                ✕
+              </button>
+            )}
+            {searchingCustomers && (
+              <span className="ml-1 animate-spin text-gray-400 text-xs">⟳</span>
+            )}
+          </div>
+          {showDropdown && customerOptions.length > 0 && (
+            <div className="absolute z-20 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {customerOptions.map((c) => (
+                <button
+                  key={c._id}
+                  onClick={() => handleSelectCustomer(c)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                >
+                  <span className="font-medium text-gray-900">{c.name}</span>
+                  {c.phone && <span className="text-gray-500 ml-2 text-xs">{c.phone}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-500">Mostrar:</label>
           <select
@@ -132,6 +258,28 @@ const Orders: React.FC = () => {
         </button>
         <span className="text-sm text-gray-500 ml-auto">{totalVentas.toLocaleString()} ventas totales</span>
       </div>
+
+      {/* Selected customer banner with accumulated total */}
+      {selectedCustomer && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600 text-sm font-medium">
+              Filtrando por: {selectedCustomer.name}
+            </span>
+            {selectedCustomer.phone && (
+              <span className="text-blue-400 text-xs">({selectedCustomer.phone})</span>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-blue-700 font-semibold">
+              Total acumulado: {fmt(totalAcumulado)}
+            </span>
+            <span className="text-xs text-blue-500">
+              {ventas.length} orden{ventas.length !== 1 ? 'es' : ''}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (
@@ -191,6 +339,15 @@ const Orders: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Accumulated total footer when customer is selected */}
+          {selectedCustomer && ventas.length > 0 && (
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 flex justify-end">
+              <span className="text-sm font-semibold text-gray-700">
+                Total acumulado de {selectedCustomer.name}: <span className="text-green-700 text-base">{fmt(totalAcumulado)}</span>
+              </span>
+            </div>
+          )}
         </div>
       )}
 

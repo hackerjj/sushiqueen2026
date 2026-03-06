@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import PromoSection from '../components/promo/PromoSection';
-import type { Promotion } from '../types';
+import api from '../services/api';
+import type { Promotion, ApiResponse } from '../types';
 
-const MOCK_PROMOTIONS: Promotion[] = [
+const FALLBACK_PROMOTIONS: Promotion[] = [
   {
     _id: 'p1',
     title: '15% OFF Primera Compra',
@@ -56,9 +57,19 @@ const Promotions: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Always use local promotions data (has correct images)
-    setPromotions(MOCK_PROMOTIONS);
-    setLoading(false);
+    const fetchPromotions = async () => {
+      try {
+        const { data } = await api.get<ApiResponse<Promotion[]>>('/promotions');
+        const list = Array.isArray(data.data) ? data.data : [];
+        setPromotions(list.length > 0 ? list : FALLBACK_PROMOTIONS);
+      } catch {
+        // Fallback to local data if API is unavailable
+        setPromotions(FALLBACK_PROMOTIONS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPromotions();
   }, []);
 
   return (
