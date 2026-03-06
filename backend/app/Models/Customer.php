@@ -28,7 +28,5 @@ class Customer extends Model
     protected $casts = [
         'total_orders' => 'integer',
         'total_spent' => 'float',
-        'preferences' => 'array',
-        'ai_profile' => 'array',
     ];
 }

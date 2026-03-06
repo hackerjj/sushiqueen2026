@@ -29,8 +29,5 @@ class MenuItem extends Model
         'cost' => 'float',
         'available' => 'boolean',
         'sort_order' => 'integer',
-        'modifiers' => 'array',
-        'prices' => 'array',
-        'available_hours' => 'array',
     ];
 }

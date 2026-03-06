@@ -32,7 +32,5 @@ class CashRegister extends Model
         'system_amount' => 'float',
         'user_amount' => 'float',
         'difference' => 'float',
-        'movements' => 'array',
-        'summary' => 'array',
     ];
 }

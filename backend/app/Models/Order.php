@@ -34,8 +34,6 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'items' => 'array',
-        'prepared_items' => 'array',
         'subtotal' => 'float',
         'tax' => 'float',
         'total' => 'float',
