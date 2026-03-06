@@ -78,6 +78,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
             ))}
           </nav>
 
+          {/* Version */}
+          <div className="px-4 py-2 text-center">
+            <span className="text-[10px] text-gray-600 font-mono">v2.1.0 — build {new Date().toISOString().slice(0,10)}</span>
+          </div>
+
           {/* User */}
           <div className="px-4 py-4 border-t border-white/10">
             <div className="flex items-center gap-3">
