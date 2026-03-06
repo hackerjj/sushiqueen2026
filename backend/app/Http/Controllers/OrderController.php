@@ -208,44 +208,49 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
         {
-            $query = Order::query();
+            try {
+                $query = Order::query();
 
-            if ($request->has('status')) {
-                $query->where('status', $request->input('status'));
+                if ($request->has('status')) {
+                    $query->where('status', $request->input('status'));
+                }
+
+                if ($request->has('source')) {
+                    $query->where('source', $request->input('source'));
+                }
+
+                if ($request->has('type')) {
+                    $query->where('type', $request->input('type'));
+                }
+
+                if ($request->has('channel')) {
+                    $query->where('channel', $request->input('channel'));
+                }
+
+                if ($request->has('customer_id')) {
+                    $query->where('customer_id', $request->input('customer_id'));
+                }
+
+                if ($request->filled('customer_name')) {
+                    $name = $request->input('customer_name');
+                    $query->where('customer.name', 'like', '%' . $name . '%');
+                }
+
+                if ($request->has('from')) {
+                    $query->where('created_at', '>=', Carbon::parse($request->input('from')));
+                }
+
+                if ($request->has('to')) {
+                    $query->where('created_at', '<=', Carbon::parse($request->input('to')));
+                }
+
+                $orders = $query->orderBy('created_at', 'desc')
+                    ->paginate($request->input('per_page', 20));
+
+                return response()->json($orders);
+            } catch (\Throwable $e) {
+                return response()->json(['data' => [], 'error' => $e->getMessage()], 200);
             }
-
-            if ($request->has('source')) {
-                $query->where('source', $request->input('source'));
-            }
-
-            if ($request->has('type')) {
-                $query->where('type', $request->input('type'));
-            }
-
-            if ($request->has('channel')) {
-                $query->where('channel', $request->input('channel'));
-            }
-
-            if ($request->has('customer_id')) {
-                $query->where('customer_id', $request->input('customer_id'));
-            }
-
-            if ($request->has('customer_name')) {
-                $query->where('customer.name', 'regex', new \MongoDB\BSON\Regex($request->input('customer_name'), 'i'));
-            }
-
-            if ($request->has('from')) {
-                $query->where('created_at', '>=', Carbon::parse($request->input('from')));
-            }
-
-            if ($request->has('to')) {
-                $query->where('created_at', '<=', Carbon::parse($request->input('to')));
-            }
-
-            $orders = $query->orderBy('created_at', 'desc')
-                ->paginate($request->input('per_page', 20));
-
-            return response()->json($orders);
         }
 
     /**
@@ -298,8 +303,9 @@ class OrderController extends Controller
      */
     public function dashboard(): JsonResponse
     {
-        $today = Carbon::today();
-        $startOfMonth = Carbon::now()->startOfMonth();
+        try {
+            $today = Carbon::today();
+            $startOfMonth = Carbon::now()->startOfMonth();
 
         $todayOrders = Order::where('created_at', '>=', $today)->get();
         $monthOrders = Order::where('created_at', '>=', $startOfMonth)->get();
@@ -348,6 +354,18 @@ class OrderController extends Controller
             'top_items' => $topItems,
             'revenue_by_source' => $revenueBySource,
         ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'today' => ['orders' => 0, 'revenue' => 0],
+                'month' => ['orders' => 0, 'revenue' => 0],
+                'pending_orders' => 0,
+                'total_customers' => 0,
+                'orders_by_status' => [],
+                'top_items' => [],
+                'revenue_by_source' => [],
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
