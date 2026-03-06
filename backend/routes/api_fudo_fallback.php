@@ -20,8 +20,49 @@ Route::get('/admin/migrate-fudo', function () {
     try {
         set_time_limit(300);
 
+        // Fix dates on orders in batches
+        if ($step === 'fixdates') {
+            $page = intval(request()->query('page', 1));
+            $perPage = 500;
+            $orders = \App\Models\Order::skip(($page - 1) * $perPage)->take($perPage)->get();
+            $fixed = 0;
+            foreach ($orders as $order) {
+                $updates = [];
+                if (is_string($order->created_at)) {
+                    try { $updates['created_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($order->created_at)); } catch (\Exception $e) {}
+                }
+                if (is_string($order->updated_at)) {
+                    try { $updates['updated_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($order->updated_at)); } catch (\Exception $e) {}
+                }
+                if (is_string($order->closed_at)) {
+                    try { $updates['closed_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($order->closed_at)); } catch (\Exception $e) {}
+                }
+                if (!empty($updates)) {
+                    \App\Models\Order::where('_id', $order->_id)->update($updates);
+                    $fixed++;
+                }
+            }
+            $totalOrders = \App\Models\Order::count();
+            $hasMore = ($page * $perPage) < $totalOrders;
+            return response()->json(['success' => true, 'step' => 'fixdates', 'fixed' => $fixed, 'page' => $page, 'total' => $totalOrders, 'next' => $hasMore ? "fixdates&page=" . ($page + 1) : 'fixdates_cash']);
+        }
+
+        // Fix dates on cash registers
+        if ($step === 'fixdates_cash') {
+            $registers = \App\Models\CashRegister::all();
+            $fixed = 0;
+            foreach ($registers as $reg) {
+                $updates = [];
+                if (is_string($reg->opened_at)) { try { $updates['opened_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($reg->opened_at)); } catch (\Exception $e) {} }
+                if (is_string($reg->closed_at)) { try { $updates['closed_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($reg->closed_at)); } catch (\Exception $e) {} }
+                if (is_string($reg->created_at)) { try { $updates['created_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($reg->created_at ?? $reg->opened_at)); } catch (\Exception $e) {} }
+                if (is_string($reg->updated_at)) { try { $updates['updated_at'] = new \MongoDB\BSON\UTCDateTime(new \DateTime($reg->updated_at ?? $reg->closed_at ?? $reg->opened_at)); } catch (\Exception $e) {} }
+                if (!empty($updates)) { \App\Models\CashRegister::where('_id', $reg->_id)->update($updates); $fixed++; }
+            }
+            return response()->json(['success' => true, 'step' => 'fixdates_cash', 'fixed' => $fixed, 'next' => 'done']);
+        }
+
         if ($step === 'stats') {
-            // Update customer stats in batches of 50
             $page = intval(request()->query('page', 1));
             $perPage = 50;
             $customers = \App\Models\Customer::skip(($page - 1) * $perPage)->take($perPage)->get();
