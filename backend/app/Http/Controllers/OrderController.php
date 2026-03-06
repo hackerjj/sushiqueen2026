@@ -332,6 +332,27 @@ class OrderController extends Controller
             ]);
         });
 
+        // Fallback: if top items are empty or all are Fudo placeholder names ("Venta #..."),
+        // show available menu items instead so the dashboard section isn't blank.
+        $topItemsArray = iterator_to_array($topItems);
+        $realItems = array_filter($topItemsArray, function ($item) {
+            $name = $item->_id ?? $item['_id'] ?? '';
+            return !str_starts_with((string) $name, 'Venta #');
+        });
+
+        if (empty($realItems)) {
+            $topItems = MenuItem::where('available', true)
+                ->orderBy('sort_order')
+                ->limit(10)
+                ->get()
+                ->map(fn ($item) => [
+                    '_id' => $item->name,
+                    'name' => $item->name,
+                    'quantity' => 0,
+                    'revenue' => 0,
+                ]);
+        }
+
         $revenueBySource = Order::raw(function ($collection) use ($startOfMonth) {
             return $collection->aggregate([
                 ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],

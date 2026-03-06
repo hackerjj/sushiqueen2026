@@ -32,5 +32,7 @@ class CashRegister extends Model
         'system_amount' => 'float',
         'user_amount' => 'float',
         'difference' => 'float',
+        'opened_at' => 'datetime',
+        'closed_at' => 'datetime',
     ];
 }

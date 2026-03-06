@@ -112,6 +112,22 @@ const Orders: React.FC = () => {
     setPage(1);
   };
 
+  /** Parse MongoDB dates: handles UTCDateTime objects, ISO strings, and date strings */
+  const parseMongoDate = (d: any): Date | null => {
+    if (!d) return null;
+    if (typeof d === 'string') {
+      const parsed = new Date(d.replace(' ', 'T'));
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (typeof d === 'object' && d.$date) {
+      const ts = d.$date.$numberLong || d.$date;
+      const parsed = new Date(parseInt(String(ts)));
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (d instanceof Date) return d;
+    return null;
+  };
+
   const fetchVentas = useCallback(async () => {
     try {
       setLoading(true);
@@ -124,11 +140,15 @@ const Orders: React.FC = () => {
       // Map MongoDB order format to Venta format
       const mapped: Venta[] = list.map((o: any) => {
         let deliveryTime: number | null = null;
-        if (o.created_at && o.closed_at) {
-          const diff = (new Date(o.closed_at).getTime() - new Date(o.created_at).getTime()) / 60000;
+        const createdDate = parseMongoDate(o.created_at);
+        const closedDate = parseMongoDate(o.closed_at);
+        if (createdDate && closedDate) {
+          const diff = (closedDate.getTime() - createdDate.getTime()) / 60000;
           if (diff > 0 && diff < 1440) deliveryTime = Math.round(diff);
         }
-        if (o.delivery_time_min) deliveryTime = o.delivery_time_min;
+        if (deliveryTime === null && o.delivery_time_min != null) {
+          deliveryTime = o.delivery_time_min;
+        }
 
         const typeMap: Record<string, string> = { dine_in: 'Local', takeout: 'Mostrador', delivery: 'Delivery' };
         return {

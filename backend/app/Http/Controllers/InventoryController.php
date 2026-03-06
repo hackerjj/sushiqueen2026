@@ -19,8 +19,18 @@ class InventoryController extends Controller
         if ($request->has('low_stock')) $query->whereRaw(['$expr' => ['$lte' => ['$current_stock', '$min_stock']]]);
         if ($request->has('search')) $query->where('name', 'like', '%' . $request->input('search') . '%');
 
-        $items = $query->orderBy('name')->get();
-        return response()->json(['data' => $items]);
+        $sortBy = $request->input('sort_by', 'name');
+        $sortDir = $request->input('sort_dir', 'asc');
+        $allowed = ['name', 'category', 'cost_per_unit', 'current_stock'];
+        if (in_array($sortBy, $allowed)) {
+            $query->orderBy($sortBy, $sortDir === 'desc' ? 'desc' : 'asc');
+        } else {
+            $query->orderBy('name', 'asc');
+        }
+
+        $perPage = (int) $request->input('per_page', 200);
+        $items = $query->paginate($perPage);
+        return response()->json($items);
     }
 
     public function storeIngredient(Request $request): JsonResponse

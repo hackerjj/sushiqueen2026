@@ -40,6 +40,7 @@ class Order extends Model
         'total' => 'float',
         'tip' => 'float',
         'estimated_time' => 'integer',
+        'closed_at' => 'datetime',
     ];
 
     public function customer()

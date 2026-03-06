@@ -51,6 +51,7 @@ class CustomerController extends Controller
                     'last_order_at' => ['$max' => '$created_at'],
                     'types' => ['$push' => '$type'],
                     'sources' => ['$push' => '$source'],
+                    'channels' => ['$push' => '$channel'],
                 ]],
             ]);
         });
@@ -71,7 +72,8 @@ class CustomerController extends Controller
                 $customer->last_order_at = $metrics->last_order_at;
                 $customer->predominant_order_type = $this->computePredominantOrderType(
                     is_array($metrics->types) ? $metrics->types : iterator_to_array($metrics->types ?? []),
-                    is_array($metrics->sources) ? $metrics->sources : iterator_to_array($metrics->sources ?? [])
+                    is_array($metrics->sources) ? $metrics->sources : iterator_to_array($metrics->sources ?? []),
+                    is_array($metrics->channels) ? $metrics->channels : iterator_to_array($metrics->channels ?? [])
                 );
             } else {
                 $customer->total_orders = $customer->total_orders ?? 0;
@@ -87,23 +89,34 @@ class CustomerController extends Controller
 
     /**
      * Compute the predominant order type for a customer.
-     * Maps order types/sources to: local, delivery, app.
-     *   - dine_in, takeout, counter, express → local
+     * Maps order types/sources/channels to: local, delivery, app.
+     *   - dine_in, takeout, counter, express, mostrador, salon → local
      *   - delivery → delivery
      *   - source web/whatsapp/facebook (non-pos) → app
+     *   - channel mostrador/local/para llevar → local
      */
-    private function computePredominantOrderType(array $types, array $sources): ?string
+    private function computePredominantOrderType(array $types, array $sources, array $channels = []): ?string
     {
+        $localTypes = ['dine_in', 'takeout', 'counter', 'express', 'mostrador', 'salon'];
+        $appSources = ['web', 'whatsapp', 'facebook'];
+        $localChannels = ['mostrador', 'local', 'para llevar', 'salon'];
+
         $counts = ['local' => 0, 'delivery' => 0, 'app' => 0];
 
         foreach ($types as $i => $type) {
             $source = $sources[$i] ?? 'pos';
+            $channel = $channels[$i] ?? null;
+            $typeLower = strtolower(trim($type ?? ''));
+            $channelLower = strtolower(trim($channel ?? ''));
 
-            if ($type === 'delivery') {
+            if ($typeLower === 'delivery' || $channelLower === 'delivery') {
                 $counts['delivery']++;
-            } elseif (in_array($source, ['web', 'whatsapp', 'facebook'])) {
+            } elseif (in_array($source, $appSources)) {
                 $counts['app']++;
+            } elseif (in_array($typeLower, $localTypes) || in_array($channelLower, $localChannels)) {
+                $counts['local']++;
             } else {
+                // Default: if type is set but not recognized, count as local
                 $counts['local']++;
             }
         }
@@ -130,6 +143,24 @@ class CustomerController extends Controller
             ->limit(50)
             ->get();
 
+        // Recompute order metrics from orders collection (not stale customer model fields)
+        $orderMetrics = Order::raw(function ($collection) use ($customer) {
+            return $collection->aggregate([
+                ['$match' => ['customer_id' => (string) $customer->_id]],
+                ['$group' => [
+                    '_id' => null,
+                    'total_orders' => ['$sum' => 1],
+                    'total_spent' => ['$sum' => ['$ifNull' => ['$total', 0]]],
+                    'last_order_at' => ['$max' => '$created_at'],
+                ]],
+            ]);
+        });
+
+        $metrics = collect($orderMetrics)->first();
+        $totalOrders = $metrics->total_orders ?? 0;
+        $totalSpent = $metrics->total_spent ?? 0;
+        $lastOrderAt = $metrics->last_order_at ?? $customer->last_order_at;
+
         return response()->json([
             'data' => [
                 'customer' => $customer,
@@ -141,11 +172,11 @@ class CustomerController extends Controller
                 'address' => $customer->address,
                 'tier' => $customer->tier,
                 'source' => $customer->source,
-                'total_orders' => $customer->total_orders,
-                'total_spent' => $customer->total_spent,
+                'total_orders' => $totalOrders,
+                'total_spent' => $totalSpent,
                 'ai_profile' => $customer->ai_profile,
                 'preferences' => $customer->preferences,
-                'last_order_at' => $customer->last_order_at,
+                'last_order_at' => $lastOrderAt,
             ],
         ]);
     }

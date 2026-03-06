@@ -29,6 +29,22 @@ class MenuController extends Controller
     }
 
     /**
+     * List all menu items for admin (available + unavailable) as flat array.
+     */
+    public function adminIndex(): JsonResponse
+    {
+        $items = MenuItem::orderBy('category')
+            ->orderBy('sort_order')
+            ->get();
+
+        return response()->json([
+            'data' => $items->values(),
+            'total' => $items->count(),
+        ]);
+    }
+
+
+    /**
      * Filter menu items by category (public).
      */
     public function byCategory(string $category): JsonResponse
