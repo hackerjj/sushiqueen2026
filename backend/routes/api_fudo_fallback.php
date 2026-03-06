@@ -86,14 +86,15 @@ Route::get('/admin/migrate-fudo', function () {
             $updated = 0;
             foreach ($customers as $customer) {
                 if (!$customer->name) continue;
-                $stats = \App\Models\Order::raw(function ($col) use ($customer) {
+                $nameRegex = new \MongoDB\BSON\Regex('^' . preg_quote($customer->name, '/') . '$', 'i');
+                $stats = \App\Models\Order::raw(function ($col) use ($nameRegex) {
                     return $col->aggregate([
-                        ['$match' => ['customer.name' => $customer->name]],
+                        ['$match' => ['customer.name' => $nameRegex]],
                         ['$group' => ['_id' => null, 'count' => ['$sum' => 1], 'total' => ['$sum' => '$total'], 'last' => ['$max' => '$created_at']]],
                     ]);
                 })->first();
-                if ($stats) {
-                    $customer->update(['total_orders' => $stats['count'] ?? 0, 'total_spent' => round($stats['total'] ?? 0, 2), 'last_order_at' => $stats['last'] ?? null]);
+                if ($stats && ($stats['count'] ?? 0) > 0) {
+                    $customer->update(['total_orders' => $stats['count'], 'total_spent' => round($stats['total'] ?? 0, 2), 'last_order_at' => $stats['last'] ?? null]);
                 }
                 $updated++;
             }
