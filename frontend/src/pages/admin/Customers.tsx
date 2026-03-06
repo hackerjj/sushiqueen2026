@@ -211,7 +211,7 @@ const Customers: React.FC = () => {
                   <td className="px-5 py-3 text-gray-900 font-medium">{c.total_orders}</td>
                   <td className="px-5 py-3 text-gray-900">{formatCurrency(c.total_spent)}</td>
                   <td className="px-5 py-3 text-gray-500 text-xs">
-                    {c.last_order_at ? (() => { try { const d = typeof c.last_order_at === 'string' ? new Date(c.last_order_at.replace(' ', 'T')) : (c.last_order_at?.$date ? new Date(parseInt(c.last_order_at.$date.$numberLong || c.last_order_at.$date)) : new Date(c.last_order_at)); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })() : '—'}
+                    {c.last_order_at ? (() => { try { const v: any = c.last_order_at; const d = typeof v === 'string' ? new Date(v.replace(' ', 'T')) : (v?.$date ? new Date(parseInt(v.$date.$numberLong || v.$date)) : new Date(v)); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })() : '—'}
                   </td>
                 </tr>
               ))}
