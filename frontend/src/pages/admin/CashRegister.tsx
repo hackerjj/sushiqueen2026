@@ -24,7 +24,6 @@ const CashRegisterPage: React.FC = () => {
     payment_method: 'cash' as PaymentMethod,
   });
   const [history, setHistory] = useState<CashRegisterType[]>([]);
-  const [showHistory, setShowHistory] = useState(true);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [filterStatus, setFilterStatus] = useState('');
