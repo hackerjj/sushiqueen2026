@@ -81,20 +81,38 @@ jobs:
           set net:max-retries 5
           set net:reconnect-interval-base 5
           
-          # Debug: show where we are
+          # Debug: show FTP root structure
+          echo "=== FTP ROOT ==="
           pwd
-          ls
+          ls -la
           
-          # Try domains path first (Hostinger structure)
-          cd domains/galt.com.mx/public_html/sushiqueen || cd public_html/sushiqueen || cd sushiqueen
+          echo "=== public_html contents ==="
+          ls -la public_html/ || echo "no public_html"
+          
+          echo "=== public_html/sushiqueen contents ==="
+          ls -la public_html/sushiqueen/ || echo "no public_html/sushiqueen"
+          
+          echo "=== domains structure ==="
+          ls -la domains/ || echo "no domains"
+          ls -la domains/galt.com.mx/public_html/sushiqueen/ || echo "no domains/galt.com.mx/public_html/sushiqueen"
+          
+          # Deploy to public_html/sushiqueen (the file manager shows this path)
+          cd public_html/sushiqueen
+          echo "=== DEPLOYING TO ==="
           pwd
           
-          # Force remove old index.html
+          # Force remove old files
           rm -f index.html
           rm -f .htaccess
+          glob rm -f assets/*.js
+          glob rm -f assets/*.css
           
           # Upload all new files
-          mirror -R --delete --no-perms --parallel=4 --verbose --exclude images/ frontend/dist/ .
+          mirror -R --no-perms --parallel=4 --verbose --exclude images/ frontend/dist/ .
+          
+          echo "=== AFTER DEPLOY ==="
+          ls -la
+          ls -la assets/ || echo "no assets dir"
           bye
           EOF
           
