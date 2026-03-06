@@ -6,7 +6,7 @@ import {
   channelToOrderType,
   channelDefaultCustomerName,
 } from './salesChannels';
-import type { SalesChannel } from './salesChannels';
+// SalesChannel type used implicitly via the imported functions
 
 describe('salesChannels', () => {
   describe('SALES_CHANNELS', () => {
