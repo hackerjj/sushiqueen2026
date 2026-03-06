@@ -71,12 +71,12 @@ const Customers: React.FC = () => {
           setTotal(Array.isArray(data.data) ? data.data.length : 0);
         }
       } catch {
-      try {
-        const { data } = await api.get<ApiResponse<Customer[]>>('/admin/customers');
-        setCustomers(Array.isArray(data.data) ? data.data : []);
-        setTotal(Array.isArray(data.data) ? data.data.length : 0);
-      } catch { /* ignore */ }
-    } finally { setLoading(false); }
+        try {
+          const { data } = await api.get<ApiResponse<Customer[]>>('/admin/customers');
+          setCustomers(Array.isArray(data.data) ? data.data : []);
+          setTotal(Array.isArray(data.data) ? data.data.length : 0);
+        } catch { /* ignore */ }
+      } finally { setLoading(false); }
   }, [page, search, filterTier, filterSource]);
 
   useEffect(() => { if (isAuthenticated) fetchCustomers(); }, [fetchCustomers, isAuthenticated]);
