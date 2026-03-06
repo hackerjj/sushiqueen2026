@@ -80,10 +80,20 @@ jobs:
           set net:timeout 60
           set net:max-retries 5
           set net:reconnect-interval-base 5
-          mkdir -p public_html/sushiqueen
-          cd public_html/sushiqueen
+          
+          # Debug: show where we are
+          pwd
+          ls
+          
+          # Try domains path first (Hostinger structure)
+          cd domains/galt.com.mx/public_html/sushiqueen || cd public_html/sushiqueen || cd sushiqueen
+          pwd
+          
+          # Force remove old index.html
           rm -f index.html
           rm -f .htaccess
+          
+          # Upload all new files
           mirror -R --delete --no-perms --parallel=4 --verbose --exclude images/ frontend/dist/ .
           bye
           EOF
