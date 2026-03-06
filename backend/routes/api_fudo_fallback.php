@@ -10,18 +10,120 @@ use Illuminate\Http\Request;
 
 $dataPath = storage_path('app/fudo_data');
 
-// Migration route — run from browser after deploy
+// Migration route — run from browser after deploy (step by step to avoid timeout)
 Route::get('/admin/migrate-fudo', function () {
     $secret = request()->query('key');
     if ($secret !== 'sushiqueen2026migrate') {
         return response()->json(['error' => 'Unauthorized'], 401);
     }
+    $step = request()->query('step', 'menu');
     try {
-        \Illuminate\Support\Facades\Artisan::call('fudo:migrate', ['--fresh' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return response()->json(['success' => true, 'output' => $output]);
+        $steps = ['menu', 'customers', 'ingredients', 'suppliers', 'cash', 'orders1', 'orders2', 'orders3'];
+        $dataPath = storage_path('app/fudo_data');
+
+        if ($step === 'menu') {
+            \App\Models\MenuItem::truncate();
+            $items = json_decode(file_get_contents($dataPath . '/sushi_queen_menu.json'), true);
+            foreach ($items as $item) {
+                \App\Models\MenuItem::create(['name' => $item['name'], 'description' => $item['description'] ?? '', 'price' => floatval($item['price']), 'category' => $item['category'] ?? 'General', 'image_url' => $item['image_url'] ?? '', 'modifiers' => $item['modifiers'] ?? [], 'available' => true, 'sort_order' => $item['sort_order'] ?? 0]);
+            }
+            return response()->json(['success' => true, 'step' => 'menu', 'count' => count($items), 'next' => 'customers']);
+        }
+
+        if ($step === 'customers') {
+            \App\Models\Customer::truncate();
+            $clientes = json_decode(file_get_contents($dataPath . '/clientes.json'), true);
+            $count = 0;
+            foreach ($clientes as $c) {
+                $nombre = $c['Nombre'] ?? null;
+                if (!$nombre || ($c['Activo'] ?? '') !== 'Sí') continue;
+                \App\Models\Customer::create(['name' => $nombre, 'phone' => $c['Teléfono'] ?? '', 'email' => $c['Email'] ?? '', 'address' => trim(($c['Calle'] ?? '') . ' ' . ($c['Número'] ?? '')), 'source' => 'pos', 'tier' => 'regular', 'total_orders' => intval($c['Cant. de compras'] ?? 0), 'total_spent' => 0, 'preferences' => [], 'ai_profile' => ['favorite_items' => [], 'order_frequency' => '', 'avg_order_value' => 0, 'last_recommendations' => []]]);
+                $count++;
+            }
+            return response()->json(['success' => true, 'step' => 'customers', 'count' => $count, 'next' => 'ingredients']);
+        }
+
+        if ($step === 'ingredients') {
+            \App\Models\Ingredient::truncate();
+            $data = json_decode(file_get_contents($dataPath . '/ingredientes.json'), true);
+            $count = 0;
+            foreach ($data as $i) {
+                if (!($i['Nombre'] ?? null)) continue;
+                \App\Models\Ingredient::create(['name' => $i['Nombre'], 'category' => $i['Categoría'] ?? '', 'unit' => $i['Unidad'] ?? 'kg', 'cost_per_unit' => floatval($i['Costo'] ?? 0), 'current_stock' => floatval($i['Stock'] ?? 0), 'min_stock' => 0]);
+                $count++;
+            }
+            return response()->json(['success' => true, 'step' => 'ingredients', 'count' => $count, 'next' => 'suppliers']);
+        }
+
+        if ($step === 'suppliers') {
+            \App\Models\Supplier::truncate();
+            $data = json_decode(file_get_contents($dataPath . '/proveedores.json'), true);
+            $count = 0;
+            foreach ($data as $s) {
+                if (!($s['Nombre'] ?? null) || ($s['Activo'] ?? '') !== 'Sí') continue;
+                \App\Models\Supplier::create(['name' => $s['Nombre'], 'email' => $s['Email'] ?? '', 'phone' => $s['Teléfono'] ?? '', 'address' => $s['Dirección'] ?? '', 'tax_id' => $s['Nro. Fiscal'] ?? '', 'active' => true]);
+                $count++;
+            }
+            return response()->json(['success' => true, 'step' => 'suppliers', 'count' => $count, 'next' => 'cash']);
+        }
+
+        if ($step === 'cash') {
+            \App\Models\CashRegister::truncate();
+            $data = json_decode(file_get_contents($dataPath . '/arqueos_caja.json'), true);
+            $count = 0;
+            $batch = [];
+            foreach ($data as $a) {
+                if (($a['status'] ?? '') === 'eliminado') continue;
+                $batch[] = ['name' => $a['name'] ?? 'Principal', 'opened_by' => 'admin', 'opened_at' => $a['opened_at'], 'closed_at' => $a['closed_at'], 'initial_amount' => 0, 'expected_amount' => $a['system_amount'] ?? 0, 'actual_amount' => $a['user_amount'] ?? 0, 'system_amount' => $a['system_amount'] ?? 0, 'user_amount' => $a['user_amount'] ?? 0, 'difference' => $a['difference'] ?? 0, 'status' => ($a['status'] ?? '') === 'cerrado' ? 'closed' : 'open', 'movements' => [], 'summary' => ['total_sales' => $a['system_amount'] ?? 0, 'total_cash' => 0, 'total_card' => 0, 'total_transfer' => 0, 'total_tips' => 0, 'total_expenses' => 0, 'total_withdrawals' => 0]];
+                if (count($batch) >= 200) { \App\Models\CashRegister::insert($batch); $count += count($batch); $batch = []; }
+            }
+            if (count($batch) > 0) { \App\Models\CashRegister::insert($batch); $count += count($batch); }
+            return response()->json(['success' => true, 'step' => 'cash', 'count' => $count, 'next' => 'orders1']);
+        }
+
+        // Orders in 3 batches of ~8000 each
+        if (str_starts_with($step, 'orders')) {
+            $batchNum = intval(substr($step, 6)); // 1, 2, or 3
+            if ($batchNum === 1) \App\Models\Order::truncate();
+
+            $ventas = json_decode(file_get_contents($dataPath . '/ventas.json'), true);
+            $payMap = ['Efectivo' => 'cash', 'Tarj. Débito' => 'card', 'Tarj. Crédito' => 'card', 'Transferencia' => 'transfer', 'Mercado Pago' => 'transfer'];
+            $typeMap = ['Local' => 'dine_in', 'Mostrador' => 'takeout', 'Delivery' => 'delivery', 'Para llevar' => 'takeout'];
+            $statusMap = ['Cerrada' => 'delivered', 'Cancelada' => 'cancelled', 'Abierta' => 'pending'];
+
+            $valid = [];
+            foreach ($ventas as $v) {
+                if (!isset($v['Desde']) || !is_numeric($v['Desde'])) continue;
+                if (floatval($v['Unnamed: 12'] ?? 0) <= 0) continue;
+                $valid[] = $v;
+            }
+
+            $chunkSize = ceil(count($valid) / 3);
+            $offset = ($batchNum - 1) * $chunkSize;
+            $chunk = array_slice($valid, $offset, $chunkSize);
+
+            $batch = [];
+            $count = 0;
+            foreach ($chunk as $v) {
+                $total = floatval($v['Unnamed: 12'] ?? 0);
+                $creacion = $v['Unnamed: 2'] ?? $v['01/01/2021 00:00'] ?? null;
+                $cerrada = $v['Unnamed: 3'] ?? null;
+                $tipoVenta = $v['Unnamed: 14'] ?? 'Local';
+                $metodoPago = $v['Unnamed: 11'] ?? 'Efectivo';
+                $estado = $v['Unnamed: 5'] ?? 'Cerrada';
+
+                $batch[] = ['order_number' => strval($v['Desde']), 'customer' => ['name' => $v['Unnamed: 6'] ?? '', 'phone' => $v['Unnamed: 20'] ?? '', 'email' => $v['Unnamed: 19'] ?? ''], 'items' => [['name' => 'Venta Fudo #' . $v['Desde'], 'quantity' => 1, 'price' => $total, 'menu_item_id' => '', 'modifiers' => []]], 'subtotal' => $total, 'tax' => 0, 'total' => $total, 'status' => $statusMap[$estado] ?? 'delivered', 'source' => 'fudo', 'type' => $typeMap[$tipoVenta] ?? 'dine_in', 'notes' => $v['Unnamed: 15'] ?? '', 'delivery_address' => '', 'payment_method' => $payMap[$metodoPago] ?? 'cash', 'payment_status' => 'paid', 'tip' => 0, 'prepared_items' => [], 'guest_count' => is_numeric($v['Unnamed: 9'] ?? null) ? intval($v['Unnamed: 9']) : null, 'created_at' => $creacion, 'updated_at' => $cerrada ?? $creacion, 'closed_at' => $cerrada, 'channel' => strtolower($tipoVenta)];
+                if (count($batch) >= 200) { \App\Models\Order::insert($batch); $count += count($batch); $batch = []; }
+            }
+            if (count($batch) > 0) { \App\Models\Order::insert($batch); $count += count($batch); }
+
+            $nextStep = $batchNum < 3 ? 'orders' . ($batchNum + 1) : 'done';
+            return response()->json(['success' => true, 'step' => $step, 'count' => $count, 'total_valid' => count($valid), 'next' => $nextStep]);
+        }
+
+        return response()->json(['success' => true, 'step' => 'done', 'message' => 'Migration complete!']);
     } catch (\Throwable $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+        return response()->json(['success' => false, 'step' => $step, 'error' => $e->getMessage()], 500);
     }
 });
 
