@@ -54,11 +54,10 @@ const MenuManager: React.FC = () => {
     try {
       setLoading(true);
       try {
-        const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu-json');
-        setItems(Array.isArray(data.data) ? data.data : []);
-      } catch {
         const { data } = await api.get<ApiResponse<MenuItem[]>>('/admin/menu');
         setItems(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        setItems([]);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
   };

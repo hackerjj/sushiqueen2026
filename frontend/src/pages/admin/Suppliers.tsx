@@ -40,14 +40,11 @@ const Suppliers: React.FC = () => {
   const fetchSuppliers = useCallback(async () => {
     try {
       setLoading(true);
-      // Try fallback endpoint first
       try {
-        const { data } = await api.get('/admin/suppliers-json');
-        setSuppliers(Array.isArray(data.data) ? data.data : []);
-      } catch {
-        // If fallback fails, try MongoDB endpoint
         const { data } = await api.get('/admin/suppliers');
         setSuppliers(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        setSuppliers([]);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
