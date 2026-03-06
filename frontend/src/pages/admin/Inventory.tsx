@@ -27,6 +27,9 @@ interface IngredientForm {
 const emptyForm: IngredientForm = { name: '', unit: 'kg', current_stock: 0, min_stock: 0, cost_per_unit: 0, category: '' };
 const units = ['kg', 'g', 'l', 'ml', 'pza', 'paq'];
 
+type SortField = 'name' | 'category' | 'cost_per_unit' | 'current_stock';
+type SortDir = 'asc' | 'desc';
+
 const Inventory: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -40,25 +43,57 @@ const Inventory: React.FC = () => {
   const [movementModal, setMovementModal] = useState<string | null>(null);
   const [movementForm, setMovementForm] = useState({ type: 'purchase', quantity: 0, cost: 0, notes: '' });
 
+  // Pagination & sorting state
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(200);
+  const [sortBy, setSortBy] = useState<SortField>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [totalItems, setTotalItems] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
+
   useEffect(() => { if (!isAuthenticated) navigate('/admin/login'); }, [isAuthenticated, navigate]);
 
   const fetchIngredients = useCallback(async () => {
     try {
       setLoading(true);
       try {
-        const { data } = await api.get('/admin/ingredients');
+        const { data } = await api.get('/admin/ingredients', {
+          params: {
+            page,
+            per_page: perPage,
+            sort_by: sortBy,
+            sort_dir: sortDir,
+            ...(search ? { search } : {}),
+          },
+        });
         setIngredients(Array.isArray(data.data) ? data.data : []);
+        setTotalItems(data.total ?? 0);
+        setLastPage(data.last_page ?? 1);
       } catch {
         setIngredients([]);
       }
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, []);
+  }, [page, perPage, sortBy, sortDir, search]);
 
   useEffect(() => { if (isAuthenticated) fetchIngredients(); }, [fetchIngredients, isAuthenticated]);
 
-  const filtered = search
-    ? ingredients.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
-    : ingredients;
+  // Reset page when search or perPage changes
+  useEffect(() => { setPage(1); }, [search, perPage]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
+
+  const sortIndicator = (field: SortField) => {
+    if (sortBy !== field) return <span className="text-gray-300 ml-1">⇅</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
 
   const openCreate = () => { setForm(emptyForm); setEditingId(null); setModalOpen(true); };
   const openEdit = (item: Ingredient) => {
@@ -94,7 +129,7 @@ const Inventory: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+  const fmt = (n: number) => `${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
   const isLow = (i: Ingredient) => i.current_stock <= i.min_stock;
 
   return (
@@ -102,11 +137,18 @@ const Inventory: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar ingrediente..." className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-60 focus:ring-2 focus:ring-sushi-primary outline-none" />
-          <span className="text-sm text-gray-500">{filtered.length} ingredientes</span>
+          <span className="text-sm text-gray-500">{totalItems} ingredientes</span>
         </div>
-        <button onClick={openCreate} className="bg-sushi-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-          Nuevo Ingrediente
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-gray-600">Por página:</label>
+          <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
+            <option value={200}>200</option>
+            <option value={400}>400</option>
+          </select>
+          <button onClick={openCreate} className="bg-sushi-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            Nuevo Ingrediente
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -117,17 +159,23 @@ const Inventory: React.FC = () => {
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="text-left text-gray-500 border-b border-gray-100">
-                  <th className="px-5 py-3 font-medium">Ingrediente</th>
-                  <th className="px-5 py-3 font-medium">Categoría</th>
+                  <th className="px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-700" onClick={() => toggleSort('name')}>
+                    Ingrediente{sortIndicator('name')}
+                  </th>
+                  <th className="px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-700" onClick={() => toggleSort('category')}>
+                    Categoría{sortIndicator('category')}
+                  </th>
                   <th className="px-5 py-3 font-medium">Stock</th>
                   <th className="px-5 py-3 font-medium">Mínimo</th>
-                  <th className="px-5 py-3 font-medium">Costo/Unidad</th>
+                  <th className="px-5 py-3 font-medium cursor-pointer select-none hover:text-gray-700" onClick={() => toggleSort('cost_per_unit')}>
+                    Costo/Unidad{sortIndicator('cost_per_unit')}
+                  </th>
                   <th className="px-5 py-3 font-medium">Estado</th>
                   <th className="px-5 py-3 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(item => (
+                {ingredients.map(item => (
                   <tr key={item._id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-5 py-3 font-medium text-gray-900">{item.name}</td>
                     <td className="px-5 py-3 text-gray-600">{item.category || '-'}</td>
@@ -148,10 +196,35 @@ const Inventory: React.FC = () => {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No hay ingredientes</td></tr>}
+                {ingredients.length === 0 && <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">No hay ingredientes</td></tr>}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {lastPage > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+              <span className="text-sm text-gray-500">
+                Página {page} de {lastPage}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(lastPage, p + 1))}
+                  disabled={page >= lastPage}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

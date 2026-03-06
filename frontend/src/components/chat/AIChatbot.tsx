@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../../services/api';
 import { menuData } from '../../data/menuData';
+import type { MenuItem } from '../../types';
 
 interface Message {
   id: string;
@@ -21,8 +22,28 @@ const AIChatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [menu, setMenu] = useState<MenuItem[]>(menuData);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch menu from API on mount, fallback to static menuData
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const response = await api.get('/menu');
+        const grouped = response.data?.data;
+        if (grouped && typeof grouped === 'object') {
+          const flat = Object.values(grouped).flat() as MenuItem[];
+          if (flat.length > 0) {
+            setMenu(flat);
+          }
+        }
+      } catch {
+        // Keep menuData fallback (already set as initial state)
+      }
+    };
+    fetchMenu();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,7 +72,7 @@ const AIChatbot: React.FC = () => {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.data?.response || data.message || getSmartResponse(userMsg.content),
+        content: data.data?.response || data.message || getSmartResponse(userMsg.content, menu),
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiMsg]);
@@ -59,7 +80,7 @@ const AIChatbot: React.FC = () => {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: getSmartResponse(userMsg.content),
+        content: getSmartResponse(userMsg.content, menu),
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiMsg]);
@@ -189,7 +210,7 @@ const AIChatbot: React.FC = () => {
 // SMART RESPONSE ENGINE - Full context from menu + Google Maps
 // ═══════════════════════════════════════════════════════════════
 
-function getSmartResponse(message: string): string {
+function getSmartResponse(message: string, menuItems: MenuItem[]): string {
   const lower = message.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // ─── GREETINGS ─────────────────────────────────────────────
@@ -229,15 +250,15 @@ function getSmartResponse(message: string): string {
 
   // ─── FULL MENU ─────────────────────────────────────────────
   if (/menu completo|todo el menu|ver menu|ver el menu|carta|que tienen|que hay/.test(lower)) {
-    const categories = [...new Set(menuData.map(i => i.category))];
+    const categories = [...new Set(menuItems.map(i => i.category))];
     const catSummary = categories.map(cat => {
-      const items = menuData.filter(i => i.category === cat);
+      const items = menuItems.filter(i => i.category === cat);
       const minPrice = Math.min(...items.map(i => i.price));
       const maxPrice = Math.max(...items.map(i => i.price));
       return `• ${cat} (${items.length} platillos) - $${minPrice} a $${maxPrice}`;
     }).join('\n');
 
-    return `📋 Nuestro menú tiene ${menuData.length}+ platillos en ${categories.length} categorías:\n\n${catSummary}\n\n¿De qué categoría te gustaría saber más? También puedes ver el menú completo en la sección "Menú" de la web.`;
+    return `📋 Nuestro menú tiene ${menuItems.length}+ platillos en ${categories.length} categorías:\n\n${catSummary}\n\n¿De qué categoría te gustaría saber más? También puedes ver el menú completo en la sección "Menú" de la web.`;
   }
 
   // ─── RECOMMENDATIONS / BEST ────────────────────────────────
@@ -338,7 +359,7 @@ function getSmartResponse(message: string): string {
 
   // ─── SEARCH FOR SPECIFIC ITEM ──────────────────────────────
   const searchTerms = lower.split(/\s+/);
-  const matchedItems = menuData.filter(item => {
+  const matchedItems = menuItems.filter(item => {
     const itemLower = (item.name + ' ' + item.description).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return searchTerms.some(term => term.length > 3 && itemLower.includes(term));
   });

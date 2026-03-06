@@ -22,6 +22,7 @@ class Expense extends Model
 
     protected $casts = [
         'amount' => 'float',
+        'date' => 'datetime',
     ];
 
     public const CATEGORIES = [

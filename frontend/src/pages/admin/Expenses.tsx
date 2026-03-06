@@ -26,7 +26,17 @@ const PERIODS = [
   { value: 'week', label: 'Semana' },
   { value: 'month', label: 'Mes' },
   { value: 'year', label: 'Año' },
+  { value: 'custom', label: 'Personalizado' },
 ];
+
+/** Returns true if the range between two dates exceeds 24 months */
+const exceedsMaxRange = (start: string, end: string): boolean => {
+  if (!start || !end) return false;
+  const s = new Date(start);
+  const e = new Date(end);
+  const diffMonths = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  return diffMonths > 24 || (diffMonths === 24 && e.getDate() > s.getDate());
+};
 
 const categoryColors: Record<string, string> = {
   ingredientes: 'bg-orange-100 text-orange-700',
@@ -35,6 +45,24 @@ const categoryColors: Record<string, string> = {
   alquiler: 'bg-green-100 text-green-700',
   marketing: 'bg-pink-100 text-pink-700',
   otros: 'bg-gray-100 text-gray-600',
+  consumibles: 'bg-yellow-100 text-yellow-700',
+  verduras: 'bg-emerald-100 text-emerald-700',
+  basura: 'bg-stone-100 text-stone-600',
+  importación: 'bg-indigo-100 text-indigo-700',
+  sueldos: 'bg-violet-100 text-violet-700',
+  cárnicos: 'bg-red-100 text-red-700',
+  abarrotes: 'bg-amber-100 text-amber-700',
+  mantenimiento: 'bg-cyan-100 text-cyan-700',
+  agua: 'bg-sky-100 text-sky-700',
+};
+
+const getCategoryColor = (category: string): string =>
+  categoryColors[category] || 'bg-gray-100 text-gray-600';
+
+const getCategoryLabel = (category: string): string => {
+  const found = CATEGORIES.find(c => c.value === category);
+  if (found) return found.label;
+  return category.charAt(0).toUpperCase() + category.slice(1);
 };
 
 interface ExpenseForm {
@@ -70,6 +98,8 @@ const AdminExpenses: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('month');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [tab, setTab] = useState<'list' | 'summary'>('list');
   const [summary, setSummary] = useState<{ by_category: CategorySummary[]; total: number } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -83,21 +113,41 @@ const AdminExpenses: React.FC = () => {
       setLoading(true);
       const params: Record<string, string> = {};
       if (filterCategory) params.category = filterCategory;
-      if (filterPeriod) params.period = filterPeriod;
+      if (filterPeriod === 'custom') {
+        if (startDate && endDate && exceedsMaxRange(startDate, endDate)) {
+          setExpenses([]);
+          setLoading(false);
+          return;
+        }
+        if (startDate) params.start_date = startDate;
+        if (endDate) params.end_date = endDate;
+      } else if (filterPeriod) {
+        params.period = filterPeriod;
+      }
       const { data } = await api.get<ApiResponse<Expense[]>>('/admin/expenses', { params });
       setExpenses(Array.isArray(data.data) ? data.data : []);
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [filterCategory, filterPeriod]);
+  }, [filterCategory, filterPeriod, startDate, endDate]);
 
   const fetchSummary = useCallback(async () => {
     try {
       setSummaryLoading(true);
       const params: Record<string, string> = {};
-      if (filterPeriod) params.period = filterPeriod;
+      if (filterPeriod === 'custom') {
+        if (startDate && endDate && exceedsMaxRange(startDate, endDate)) {
+          setSummary(null);
+          setSummaryLoading(false);
+          return;
+        }
+        if (startDate) params.start_date = startDate;
+        if (endDate) params.end_date = endDate;
+      } else if (filterPeriod) {
+        params.period = filterPeriod;
+      }
       const { data } = await api.get('/admin/expenses/summary', { params });
       setSummary(data.data);
     } catch { /* ignore */ } finally { setSummaryLoading(false); }
-  }, [filterPeriod]);
+  }, [filterPeriod, startDate, endDate]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -159,9 +209,20 @@ const AdminExpenses: React.FC = () => {
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3 flex-wrap">
-          <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+          <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); if (e.target.value !== 'custom') { setStartDate(''); setEndDate(''); } }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
             {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          {filterPeriod === 'custom' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-sm text-gray-600">Desde</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" />
+              <label className="text-sm text-gray-600">Hasta</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none" />
+              {startDate && endDate && exceedsMaxRange(startDate, endDate) && (
+                <span className="text-xs text-red-500 font-medium">El rango máximo es de 24 meses</span>
+              )}
+            </div>
+          )}
           {tab === 'list' && (
             <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
               <option value="">Todas las categorías</option>
@@ -205,8 +266,8 @@ const AdminExpenses: React.FC = () => {
                       </td>
                       <td className="px-5 py-3 font-medium text-gray-900">${exp.amount?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-5 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryColors[exp.category] || categoryColors.otros}`}>
-                          {CATEGORIES.find(c => c.value === exp.category)?.label || exp.category}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(exp.category)}`}>
+                          {getCategoryLabel(exp.category)}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-gray-600">{exp.date ? (() => { try { const d = new Date(typeof exp.date === 'string' ? exp.date.replace(' ', 'T') : exp.date); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-MX'); } catch { return '—'; } })() : '—'}</td>
@@ -253,8 +314,8 @@ const AdminExpenses: React.FC = () => {
                 {summary.by_category.filter(c => c.count > 0).map((cat) => (
                   <div key={cat.category} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryColors[cat.category] || categoryColors.otros}`}>
-                        {CATEGORIES.find(c => c.value === cat.category)?.label || cat.category}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(cat.category)}`}>
+                        {getCategoryLabel(cat.category)}
                       </span>
                       <span className="text-xs text-gray-400">{cat.count} gastos</span>
                     </div>

@@ -145,18 +145,22 @@ class ExpenseController extends Controller
 
         $expenses = $query->get();
 
+        $grouped = $expenses->groupBy('category');
         $byCategory = [];
         $total = 0;
 
-        foreach (Expense::CATEGORIES as $cat) {
-            $catTotal = $expenses->where('category', $cat)->sum('amount');
+        foreach ($grouped as $cat => $catExpenses) {
+            $catTotal = $catExpenses->sum('amount');
             $byCategory[] = [
                 'category' => $cat,
                 'total' => round($catTotal, 2),
-                'count' => $expenses->where('category', $cat)->count(),
+                'count' => $catExpenses->count(),
             ];
             $total += $catTotal;
         }
+
+        // Sort by total descending
+        usort($byCategory, fn($a, $b) => $b['total'] <=> $a['total']);
 
         return response()->json([
             'data' => [

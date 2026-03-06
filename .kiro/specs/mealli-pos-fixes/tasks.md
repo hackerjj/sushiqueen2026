@@ -1,0 +1,192 @@
+# Implementation Plan
+
+- [ ] 1. Write bug condition exploration tests
+  - **Property 1: Fault Condition** — MealLi POS Admin Rendering Bugs
+  - **CRITICAL**: This test MUST FAIL on unfixed code — failure confirms the bugs exist
+  - **DO NOT attempt to fix the tests or the code when they fail**
+  - **NOTE**: These tests encode the expected behavior — they will validate the fixes when they pass after implementation
+  - **GOAL**: Surface counterexamples that demonstrate each bug exists
+  - **Scoped PBT Approach**: Scope properties to concrete failing cases for each bug area
+  - Write a PHPUnit feature test file `backend/tests/Feature/BugConditionExplorationTest.php` covering:
+    - `MenuController::index()` returns grouped object (not flat array) and filters `available=true` — assert `data.data` is NOT a flat array of all items (Bug 1)
+    - `ExpenseController::summary()` only returns hardcoded `CATEGORIES` — insert expense with `category: "consumibles"` and assert it's missing from summary (Bug 4)
+    - `InventoryController::ingredients()` returns all items without pagination metadata — assert response has no `current_page`/`last_page` keys (Bug 9)
+    - `OrderController::dashboard()` top_items returns empty/placeholder when Fudo orders present — insert orders with `items: [{name: "Venta #123"}]` and assert top_items is empty after filtering (Bug 11)
+  - Write a frontend test file `frontend/src/__tests__/bugConditionExploration.test.ts` covering:
+    - Expense date parsing: pass `{$date:{$numberLong:"1704067200000"}}` to date formatter → assert it returns "—" or NaN (Bug 2)
+    - CashRegister `fmtDate()`: pass UTCDateTime-style object → assert incorrect time (Bug 8)
+    - Customer ticket promedio: assert `ai_profile?.avg_order_value` is undefined when `total_spent > 0` (Bug 6)
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests FAIL (this is correct — it proves the bugs exist)
+  - Document counterexamples found to understand root causes
+  - Mark task complete when tests are written, run, and failures are documented
+  - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6, 1.8, 1.9, 1.11, 1.12_
+
+- [ ] 2. Write preservation property tests (BEFORE implementing fixes)
+  - **Property 2: Preservation** — Existing Admin Behavior Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - **Observe behavior on UNFIXED code** for non-buggy inputs, then write tests capturing that behavior
+  - Write a PHPUnit feature test file `backend/tests/Feature/PreservationTest.php` covering:
+    - Public menu endpoint `GET /menu` returns only `available=true` items grouped by category (Preservation 3.8)
+    - Expense CRUD: create/update/delete expense with hardcoded category works correctly (Preservation 3.2)
+    - Customer filters: search, filter by tier, filter by source return correct paginated results (Preservation 3.3)
+    - Dashboard KPI cards: `sales_today`, `orders_today`, `sales_month`, `new_customers` return correct aggregated values (Preservation 3.7)
+    - Cash register open/close operations record amounts correctly (Preservation 3.4)
+    - Inventory movements (purchase, waste, adjustment) update stock correctly (Preservation 3.5)
+    - Order sorting by `order_number` and `created_at` works correctly (Preservation 3.6)
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+- [x] 3. Fix Bug 1: Menu Admin — 0 items shown
+  - [x] 3.1 Create `adminIndex()` method in `MenuController.php`
+    - Add new `adminIndex()` method that returns ALL menu items (available + unavailable) as a flat array ordered by `category` + `sort_order`
+    - Response format: `{ data: [...items], total: N }` where `data` is a flat array
+    - Keep existing `index()` method completely unchanged (Preservation 3.8)
+    - _Bug_Condition: MenuController::index() filters available=true AND groups by category AND frontend expects flat array_
+    - _Expected_Behavior: adminIndex() returns all items as flat array, Array.isArray(data.data) === true_
+    - _Preservation: Public /menu endpoint unchanged — still returns available-only grouped by category_
+    - _Requirements: 2.1, 3.1, 3.8_
+  - [x] 3.2 Update admin route in `routes/api.php`
+    - Change admin `/menu` GET route to point to `adminIndex()` instead of `index()`
+    - Keep public `/menu` route pointing to `index()`
+    - _Requirements: 2.1_
+
+- [x] 4. Fix Bug 2 & 8: DateTime casting for Expenses and CashRegister
+  - [x] 4.1 Add `datetime` cast to `Expense` model
+    - Add `'date' => 'datetime'` to `$casts` in `backend/app/Models/Expense.php`
+    - This makes jenssegers/mongodb serialize UTCDateTime as ISO 8601 string
+    - _Bug_Condition: expense.date IS MongoDB UTCDateTime AND frontend receives {$date:{$numberLong:...}} object_
+    - _Expected_Behavior: expense.date serializes as ISO 8601 string parseable by new Date()_
+    - _Preservation: Expense CRUD unchanged — new expenses store date as string via validation_
+    - _Requirements: 2.2, 3.2_
+  - [x] 4.2 Add `datetime` casts to `CashRegister` model
+    - Add `'opened_at' => 'datetime'` and `'closed_at' => 'datetime'` to `$casts` in `backend/app/Models/CashRegister.php`
+    - _Bug_Condition: register.opened_at IS MongoDB UTCDateTime AND fmtDate() fails to parse $numberLong_
+    - _Expected_Behavior: opened_at/closed_at serialize as ISO 8601 strings_
+    - _Preservation: Cash register open/close operations unchanged_
+    - _Requirements: 2.8, 3.4_
+  - [x] 4.3 Add `datetime` cast to `Order` model for `closed_at`
+    - Add `'closed_at' => 'datetime'` to `$casts` in `backend/app/Models/Order.php`
+    - This fixes Bug 10 (Ventas delivery time) at the serialization level
+    - _Bug_Condition: order.closed_at IS MongoDB UTCDateTime AND frontend new Date() returns NaN_
+    - _Expected_Behavior: closed_at serializes as ISO 8601 string_
+    - _Requirements: 2.11_
+
+- [x] 5. Fix Bug 3: Gastos custom date range filter
+  - [x] 5.1 Add custom date range picker to `Expenses.tsx`
+    - Add `startDate` and `endDate` state variables
+    - Add "Personalizado" option to the PERIODS array
+    - When period is `custom`, render two `<input type="date">` fields for start/end
+    - Pass `start_date`/`end_date` params to API when custom range is selected
+    - Validate max range of 24 months — disable apply button or show error if exceeded
+    - Reset page to 1 when date range changes
+    - _Bug_Condition: user wants custom date range AND only preset periods available_
+    - _Expected_Behavior: custom start/end date pickers available with 24-month max range_
+    - _Requirements: 2.3_
+
+- [x] 6. Fix Bug 4: Gastos Category Summary — hardcoded categories
+  - [x] 6.1 Update `ExpenseController::summary()` to use dynamic grouping
+    - Replace iteration over `Expense::CATEGORIES` with `$expenses->groupBy('category')`
+    - Build `by_category` array from actual categories in DB
+    - Sort by total descending
+    - Keep same response shape: `{ data: { by_category: [...], total: N } }`
+    - _Bug_Condition: expense.category NOT IN Expense::CATEGORIES AND summary() only iterates CATEGORIES_
+    - _Expected_Behavior: summary includes ALL categories with expenses in DB_
+    - _Preservation: Expense CRUD validation against CATEGORIES for manual expenses unchanged_
+    - _Requirements: 2.4, 3.2_
+  - [x] 6.2 Update frontend category colors to handle dynamic categories
+    - In `Expenses.tsx`, make `categoryColors` map use a default color for categories not in the hardcoded map
+    - Ensure Fudo categories (consumibles, verduras, basura, etc.) render with distinct colors
+    - _Requirements: 2.4_
+
+- [x] 7. Fix Bug 5 & 6: Clientes — predominant_order_type and ticket promedio
+  - [x] 7.1 Fix `computePredominantOrderType()` for Fudo orders
+    - In `CustomerController.php`, update type mapping to handle Fudo order types: `mostrador`/`counter`/`takeout`/`express`/`dine_in`/`salon` → `local`, `delivery` → `delivery`, source `web`/`whatsapp`/`facebook` → `app`
+    - Ensure `predominant_order_type` is included in JSON serialization
+    - _Bug_Condition: Fudo orders have different type values AND computePredominantOrderType maps incorrectly_
+    - _Expected_Behavior: predominant_order_type correctly maps all Fudo order types_
+    - _Preservation: Customer search/filter unchanged_
+    - _Requirements: 2.5, 3.3_
+  - [x] 7.2 Fix ticket promedio calculation in frontend
+    - In `Customers.tsx`, replace `detail.ai_profile?.avg_order_value` with `(detail.total_orders > 0 ? detail.total_spent / detail.total_orders : 0)`
+    - _Bug_Condition: ai_profile.avg_order_value is undefined/null AND total_spent > 0_
+    - _Expected_Behavior: ticket promedio = total_spent / total_orders_
+    - _Requirements: 2.6_
+  - [x] 7.3 Recompute order metrics in `CustomerController::show()`
+    - Aggregate `total_orders` and `total_spent` from orders collection instead of relying on stale customer model fields
+    - _Requirements: 2.6_
+
+- [x] 8. Fix Bug 7: Clientes — per_page selector
+  - [x] 8.1 Add per_page selector to `Customers.tsx`
+    - Add `perPage` state initialized to 50
+    - Render `<select>` with options 50, 100, 200, 400
+    - Pass `per_page: perPage` to API call (replace hardcoded 50)
+    - Reset page to 1 when perPage changes
+    - _Bug_Condition: per_page hardcoded to 50 in frontend_
+    - _Expected_Behavior: per_page selector with options 50/100/200/400_
+    - _Requirements: 2.7_
+
+- [x] 9. Fix Bug 9: Inventario — pagination and column sorting
+  - [x] 9.1 Update `InventoryController::ingredients()` to support pagination and sorting
+    - Replace `->get()` with `->paginate($request->input('per_page', 200))`
+    - Accept `sort_by` (allowed: name, category, cost_per_unit, current_stock) and `sort_dir` (asc/desc) query params
+    - Default sort: `name` asc
+    - _Bug_Condition: ingredients.count > 200 AND no pagination AND no column sorting_
+    - _Expected_Behavior: paginated response with sort support_
+    - _Preservation: Inventory movements unchanged_
+    - _Requirements: 2.9, 2.10, 3.5_
+  - [x] 9.2 Update `Inventory.tsx` frontend for pagination and sorting
+    - Add `page`, `perPage` (default 200), `sortBy`, `sortDir` state
+    - Add per_page selector with options 200, 400
+    - Add sortable column headers (ingredient, category, cost) — click to toggle sort direction
+    - Add pagination controls (Previous/Next buttons, page indicator)
+    - Pass `page`, `per_page`, `sort_by`, `sort_dir` params to API
+    - _Requirements: 2.9, 2.10_
+
+- [x] 10. Fix Bug 10: Ventas — delivery time display
+  - [x] 10.1 Fix delivery time parsing in `Orders.tsx`
+    - Add/update `parseMongoDate()` utility to handle UTCDateTime objects, ISO strings, and date strings
+    - Use `parseMongoDate()` for `closed_at` and `created_at` when calculating delivery time
+    - If `closed_at` is null and `delivery_time_min` exists, display `delivery_time_min` directly
+    - _Bug_Condition: order.closed_at IS MongoDB UTCDateTime OR null AND delivery_time_min IS null_
+    - _Expected_Behavior: delivery time calculated from parsed timestamps or delivery_time_min field_
+    - _Requirements: 2.11_
+
+- [x] 11. Fix Bug 11: Dashboard — top items empty for Fudo orders
+  - [x] 11.1 Add fallback aggregation in `OrderController::dashboard()`
+    - After existing `$unwind` + `$group` pipeline, check if results are empty or all names start with "Venta #"
+    - If so, fallback to showing top menu items from `MenuItem` collection (available items ordered by sort_order, limit 10)
+    - Return fallback items with `quantity: 0` and `revenue: 0` to indicate no order data available
+    - _Bug_Condition: Fudo orders have items[].name = "Venta #NNN" AND $unwind+$group returns only placeholders_
+    - _Expected_Behavior: top_items shows meaningful data — either real order items or menu item fallback_
+    - _Preservation: Dashboard KPI cards unchanged_
+    - _Requirements: 2.12, 3.7_
+
+- [ ] 12. Verify bug condition exploration tests now pass
+  - [ ] 12.1 Re-run backend exploration tests
+    - **Property 1: Expected Behavior** — Backend Bugs Fixed
+    - **IMPORTANT**: Re-run the SAME tests from task 1 — do NOT write new tests
+    - Run `backend/tests/Feature/BugConditionExplorationTest.php`
+    - **EXPECTED OUTCOME**: Tests PASS (confirms bugs are fixed)
+    - _Requirements: 2.1, 2.4, 2.9, 2.12_
+  - [ ] 12.2 Re-run frontend exploration tests
+    - **Property 1: Expected Behavior** — Frontend Bugs Fixed
+    - **IMPORTANT**: Re-run the SAME tests from task 1 — do NOT write new tests
+    - Run `frontend/src/__tests__/bugConditionExploration.test.ts`
+    - **EXPECTED OUTCOME**: Tests PASS (confirms bugs are fixed)
+    - _Requirements: 2.2, 2.6, 2.8_
+  - [ ] 12.3 Verify preservation tests still pass
+    - **Property 2: Preservation** — No Regressions
+    - **IMPORTANT**: Re-run the SAME tests from task 2 — do NOT write new tests
+    - Run `backend/tests/Feature/PreservationTest.php`
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all preservation tests still pass after all fixes
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+- [ ] 13. Checkpoint — Ensure all tests pass
+  - Run full test suite: `php artisan test` (backend) and frontend tests
+  - Verify all exploration tests pass (bugs fixed)
+  - Verify all preservation tests pass (no regressions)
+  - Ensure all tests pass, ask the user if questions arise

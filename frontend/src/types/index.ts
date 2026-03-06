@@ -234,6 +234,8 @@ export interface DashboardKPIs {
   orders_week: number;
   new_customers_week: number;
   top_items: { name: string; count: number }[];
+  top_items_note?: string | null;
+  fudo_revenue?: { total: number; count: number };
 }
 
 export interface InsightData {

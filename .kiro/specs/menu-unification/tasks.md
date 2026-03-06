@@ -1,0 +1,102 @@
+# Implementation Plan
+
+- [x] 1. Create menu seed command and endpoint
+  - [x] 1.1 Create `SeedMenuFromData.php` Artisan command (`php artisan menu:seed-from-data`)
+    - Accept JSON array of menu items (from menuData.ts export)
+    - Upsert by `name` — match menuData items to existing MongoDB items
+    - Update fields: `image_url`, `price`, `description`, `category`, `modifiers`, `sort_order`, `available`
+    - Preserve existing `_id` values (critical for order history references)
+    - Mark MongoDB items NOT present in menuData as `available: false` (soft-delete)
+    - Log summary: items created, updated, soft-deleted
+    - _Bug_Condition: MongoDB lacks correct images/prices from menuData.ts, 111 vs 104 item mismatch_
+    - _Expected_Behavior: After seed, MongoDB has 104 items with correct data from menuData.ts, extras marked available:false_
+    - _Preservation: Existing _id references in orders must be preserved (3.6)_
+    - _Requirements: 2.5, 2.6_
+  - [x] 1.2 Create `POST /api/admin/menu/seed` endpoint
+    - Accept JSON body with menuData array
+    - Call the seed logic from 1.1
+    - Return summary of upserted/soft-deleted items
+    - Protect with admin auth middleware
+    - _Requirements: 2.5, 2.6_
+  - [x] 1.3 Create script to export `menuData.ts` to JSON and seed MongoDB
+    - Convert the TypeScript menuData array to a JSON file or curl-able payload
+    - Document how to run: `node scripts/exportMenuData.js | curl -X POST ...` or similar
+    - _Requirements: 2.5_
+
+- [x] 2. Update `useMenu()` hook to fetch from API
+  - [x] 2.1 Replace static `menuData` import with `api.get('/menu')` call
+    - Parse the grouped API response and flatten to array of menu items
+    - Add loading and error states
+    - _Bug_Condition: useMenu() reads from menuData.ts instead of API_
+    - _Expected_Behavior: useMenu() fetches from /api/menu and returns MongoDB data_
+    - _Requirements: 2.1, 2.2_
+  - [x] 2.2 Add fallback to `menuData.ts` if API call fails
+    - Catch network errors and fall back to static data for offline/error resilience
+    - _Preservation: POS and public page must still work if API is down (3.4)_
+    - _Requirements: 3.4_
+
+- [x] 3. Remove POS `enrichImages()` dependency on `menuData.ts`
+  - Remove `imageByName` map creation from `menuData`
+  - Remove `enrichImages()` function
+  - Remove `menuData` import from POS.tsx (keep only as fallback in catch block if needed)
+  - After seed, MongoDB has correct `image_url` — no enrichment needed
+  - _Bug_Condition: POS enriches images from menuData.ts, masking missing data in MongoDB_
+  - _Expected_Behavior: POS uses API data directly with correct image_url from MongoDB_
+  - _Preservation: POS must still show available items with images, cart/order/payment unchanged (3.3)_
+  - _Requirements: 2.3_
+
+- [x] 4. Update AIChatbot to use API instead of `menuData.ts`
+  - Add `useEffect` to fetch menu from `/api/menu` on mount
+  - Replace all `menuData` references with API-fetched data
+  - Fallback to `menuData` if API fails
+  - _Bug_Condition: Chatbot reads stale prices/names from menuData.ts_
+  - _Expected_Behavior: Chatbot uses current data from MongoDB via API_
+  - _Requirements: 2.4_
+
+- [x] 5. Implement Dashboard Top Items with fuzzy matching
+  - [x] 5.1 Update `OrderController::dashboard()` to cross-reference Fudo orders with menu
+    - For POS orders (source != 'fudo'): aggregate items normally via $unwind/$group
+    - For Fudo orders: use `notes` field or order description to fuzzy-match product names against menu items
+    - Use approximate string matching (similar_text, levenshtein, or str_contains) to map Fudo order text to menu item names
+    - Calculate estimated quantities using order total / menu item price when item-level detail unavailable
+    - Combine POS and Fudo results into Top 10 most sold products with name, quantity, revenue
+    - _Bug_Condition: $unwind of Fudo items produces "Venta #..." names with quantity 0_
+    - _Expected_Behavior: Top Items shows real quantities > 0 by cross-referencing with unified menu_
+    - _Requirements: 2.7_
+  - [x] 5.2 Add fallback for orders with no matchable product detail
+    - If Fudo orders have no usable product info, show POS-only stats clearly
+    - Display Fudo revenue total separately if needed
+    - _Requirements: 2.7_
+
+- [x] 6. Add customer top 5 products aggregation
+  - [x] 6.1 Update `CustomerController::show()` to include `top_products`
+    - Add aggregation pipeline: $match customer orders → $unwind items → $group by item name → $sort by quantity desc → $limit 5
+    - Filter out generic Fudo items (name matching "Venta #...")
+    - Apply same fuzzy matching as dashboard for Fudo orders if applicable
+    - Return as `top_products` array in response: `[{name, quantity, total_spent}]`
+    - _Bug_Condition: Customer detail has no top products section_
+    - _Expected_Behavior: Response includes top_products with up to 5 items sorted by quantity_
+    - _Requirements: 2.8_
+
+- [x] 7. Show customer top products in frontend detail modal
+  - In `Customers.tsx` detail modal, add "Productos Más Pedidos" section
+  - Display `top_products` from API response as a simple table/list: product name, quantity, total spent
+  - Handle empty state (no products found)
+  - _Requirements: 2.8_
+
+- [x] 8. Version bump and changelog
+  - [x] 8.1 Update version to `v2.4.0` in `AdminLayout.tsx` footer
+    - _Requirements: 2.9_
+  - [x] 8.2 Update `CHANGELOG.md` with v2.4.0 entry
+    - Document: menu unification (single source of truth), useMenu API migration, POS enrichImages removal, chatbot API migration, dashboard Top Items fuzzy matching, customer top products, version bump
+    - _Requirements: 2.9_
+
+- [ ] 9. Checkpoint - Ensure all changes work end-to-end
+  - Run seed command to populate MongoDB from menuData.ts
+  - Verify public menu page loads from API
+  - Verify POS loads menu without enrichImages
+  - Verify chatbot uses API data
+  - Verify dashboard Top Items shows real quantities
+  - Verify customer detail shows top products
+  - Verify version shows v2.4.0
+  - Ask user to test on staging/local before deploying

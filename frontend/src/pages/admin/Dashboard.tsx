@@ -128,6 +128,9 @@ const Dashboard: React.FC = () => {
         {/* Top Items */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Top Items</h3>
+          {kpis?.top_items_note && (
+            <p className="text-xs text-amber-600 mb-3">{kpis.top_items_note}</p>
+          )}
           <div className="space-y-3">
             {kpis?.top_items?.filter(item => !item.name.startsWith('Venta #')).map((item, i) => (
               <div key={item.name} className="flex items-center gap-3">

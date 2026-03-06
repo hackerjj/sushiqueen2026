@@ -28,8 +28,15 @@ const orderTypeColors: Record<string, string> = {
   app: 'bg-purple-100 text-purple-700',
 };
 
+interface TopProduct {
+  name: string;
+  quantity: number;
+  total_spent: number;
+}
+
 interface CustomerDetail extends Customer {
   orders?: Order[];
+  top_products?: TopProduct[];
 }
 
 const Customers: React.FC = () => {
@@ -41,6 +48,7 @@ const Customers: React.FC = () => {
   const [filterTier, setFilterTier] = useState('');
   const [filterSource, setFilterSource] = useState('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
@@ -56,7 +64,7 @@ const Customers: React.FC = () => {
   const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, string | number> = { page, per_page: 50 };
+      const params: Record<string, string | number> = { page, per_page: perPage };
       if (search) params.search = search;
       if (filterTier) params.tier = filterTier;
       if (filterSource) params.source = filterSource;
@@ -78,7 +86,7 @@ const Customers: React.FC = () => {
         } catch { /* ignore */ }
       }
     } catch { /* outer */ } finally { setLoading(false); }
-  }, [page, search, filterTier, filterSource]);
+  }, [page, perPage, search, filterTier, filterSource]);
 
   useEffect(() => { if (isAuthenticated) fetchCustomers(); }, [fetchCustomers, isAuthenticated]);
 
@@ -90,7 +98,7 @@ const Customers: React.FC = () => {
       try {
         const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
         if (data.data) {
-          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
+          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [], top_products: data.data.top_products || [] });
         } else {
           setDetail({ ...customer, orders: [] });
         }
@@ -98,7 +106,7 @@ const Customers: React.FC = () => {
         // If fallback fails, try MongoDB endpoint
         const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
         if (data.data) {
-          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
+          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [], top_products: data.data.top_products || [] });
         } else {
           setDetail({ ...customer, orders: [] });
         }
@@ -224,25 +232,41 @@ const Customers: React.FC = () => {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center gap-2">
+          <label htmlFor="perPage" className="text-sm text-gray-600">Por página:</label>
+          <select
+            id="perPage"
+            value={perPage}
+            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none"
           >
-            Anterior
-          </button>
-          <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
-          >
-            Siguiente
-          </button>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={400}>400</option>
+          </select>
         </div>
-      )}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Customer Detail Modal */}
       {detail && (
@@ -322,9 +346,42 @@ const Customers: React.FC = () => {
                       <p className="text-xs text-gray-500">Total Gastado</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3 text-center">
-                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(detail.ai_profile?.avg_order_value || 0)}</p>
+                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(detail.total_orders > 0 ? detail.total_spent / detail.total_orders : 0)}</p>
                       <p className="text-xs text-gray-500">Ticket Promedio</p>
                     </div>
+                  </div>
+
+                  {/* Top Products */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Productos Más Pedidos</h5>
+                    {detail.top_products && detail.top_products.length > 0 ? (
+                      <div className="bg-gray-50 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-gray-500 border-b border-gray-200">
+                              <th className="px-3 py-2 font-medium">#</th>
+                              <th className="px-3 py-2 font-medium">Producto</th>
+                              <th className="px-3 py-2 font-medium text-right">Cantidad</th>
+                              <th className="px-3 py-2 font-medium text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detail.top_products.map((product, index) => (
+                              <tr key={index} className="border-b border-gray-100 last:border-0">
+                                <td className="px-3 py-2 text-gray-400 font-medium">{index + 1}</td>
+                                <td className="px-3 py-2 text-gray-900">{product.name}</td>
+                                <td className="px-3 py-2 text-gray-600 text-right">{product.quantity}</td>
+                                <td className="px-3 py-2 text-gray-900 text-right font-medium">${formatCurrency(product.total_spent)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-4 text-center text-sm text-gray-400">
+                        Sin datos de productos
+                      </div>
+                    )}
                   </div>
 
                   {/* Contact Info */}

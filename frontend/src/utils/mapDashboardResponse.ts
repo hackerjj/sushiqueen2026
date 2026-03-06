@@ -17,5 +17,7 @@ export function mapDashboardResponse(raw: any): DashboardKPIs {
       name: i.name || i._id || '',
       count: i.count || i.quantity || 0,
     })),
+    top_items_note: raw?.top_items_note ?? null,
+    fudo_revenue: raw?.fudo_revenue ?? { total: 0, count: 0 },
   };
 }

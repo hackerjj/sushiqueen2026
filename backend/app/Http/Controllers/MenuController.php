@@ -29,6 +29,22 @@ class MenuController extends Controller
     }
 
     /**
+     * List all menu items for admin (available + unavailable) as flat array.
+     */
+    public function adminIndex(): JsonResponse
+    {
+        $items = MenuItem::orderBy('category')
+            ->orderBy('sort_order')
+            ->get();
+
+        return response()->json([
+            'data' => $items->values(),
+            'total' => $items->count(),
+        ]);
+    }
+
+
+    /**
      * Filter menu items by category (public).
      */
     public function byCategory(string $category): JsonResponse
@@ -253,4 +269,24 @@ class MenuController extends Controller
         ]);
     }
 
+    /**
+     * Seed menu items from menuData.ts JSON payload (admin).
+     */
+    public function seed(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.name' => 'required|string',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.category' => 'required|string',
+        ]);
+
+        $result = \App\Console\Commands\SeedMenuFromData::seedMenu($validated['items']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Menu seeded successfully',
+            'data' => $result,
+        ]);
+    }
 }

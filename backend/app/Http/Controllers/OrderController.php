@@ -322,15 +322,69 @@ class OrderController extends Controller
             ]);
         });
 
+        // Top Items: aggregate only real product names (exclude Fudo "Venta #..." placeholders).
+        // Fudo orders have generic items like {name: "Venta #12345"} with no real product detail,
+        // so we filter them out at the pipeline level and only count POS/real orders.
         $topItems = Order::raw(function ($collection) use ($startOfMonth) {
             return $collection->aggregate([
                 ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
                 ['$unwind' => '$items'],
-                ['$group' => ['_id' => '$items.name', 'quantity' => ['$sum' => '$items.quantity'], 'revenue' => ['$sum' => '$items.line_total']]],
+                ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
+                ['$group' => [
+                    '_id' => '$items.name',
+                    'quantity' => ['$sum' => '$items.quantity'],
+                    'revenue' => ['$sum' => '$items.line_total'],
+                ]],
                 ['$sort' => ['quantity' => -1]],
                 ['$limit' => 10],
             ]);
         });
+
+        $topItemsArray = collect(iterator_to_array($topItems))->map(function ($item) {
+            return [
+                '_id' => $item->_id ?? $item['_id'] ?? '',
+                'name' => $item->_id ?? $item['_id'] ?? '',
+                'quantity' => $item->quantity ?? $item['quantity'] ?? 0,
+                'revenue' => $item->revenue ?? $item['revenue'] ?? 0,
+            ];
+        })->values()->all();
+
+        // Fallback: if no POS orders with real product names exist yet,
+        // show menu items with quantity 0 and a note for the frontend.
+        $topItemsFallback = false;
+        if (empty($topItemsArray)) {
+            $topItemsFallback = true;
+            $topItemsArray = MenuItem::where('available', true)
+                ->orderBy('sort_order')
+                ->limit(10)
+                ->get()
+                ->map(fn ($item) => [
+                    '_id' => $item->name,
+                    'name' => $item->name,
+                    'quantity' => 0,
+                    'revenue' => 0,
+                ])->all();
+        }
+
+        // Calculate Fudo-only revenue for context (orders with no real product detail).
+        $fudoRevenue = Order::raw(function ($collection) use ($startOfMonth) {
+            return $collection->aggregate([
+                ['$match' => [
+                    'created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)],
+                    'source' => 'fudo',
+                ]],
+                ['$group' => [
+                    '_id' => null,
+                    'total' => ['$sum' => '$total'],
+                    'count' => ['$sum' => 1],
+                ]],
+            ]);
+        });
+        $fudoRevenueData = collect(iterator_to_array($fudoRevenue))->first();
+        $fudoRevenueSummary = [
+            'total' => $fudoRevenueData->total ?? $fudoRevenueData['total'] ?? 0,
+            'count' => $fudoRevenueData->count ?? $fudoRevenueData['count'] ?? 0,
+        ];
 
         $revenueBySource = Order::raw(function ($collection) use ($startOfMonth) {
             return $collection->aggregate([
@@ -351,7 +405,10 @@ class OrderController extends Controller
             'pending_orders' => $pendingOrders,
             'total_customers' => $totalCustomers,
             'orders_by_status' => $ordersByStatus,
-            'top_items' => $topItems,
+            'top_items' => $topItemsArray,
+            'top_items_fallback' => $topItemsFallback,
+            'top_items_note' => $topItemsFallback ? 'Sin datos de productos — basado en menú' : null,
+            'fudo_revenue' => $fudoRevenueSummary,
             'revenue_by_source' => $revenueBySource,
         ]);
         } catch (\Throwable $e) {
