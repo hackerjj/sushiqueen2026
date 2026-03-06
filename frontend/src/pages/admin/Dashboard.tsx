@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
       try {
         const [dashRes, ordersRes] = await Promise.all([
           api.get<ApiResponse<DashboardKPIs>>('/admin/dashboard'),
-          api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 5 } }),
+          api.get<ApiResponse<Order[]>>('/admin/orders', { params: { per_page: 50 } }),
         ]);
         dashData = dashRes.data.data || dashRes.data;
         ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
@@ -42,7 +42,7 @@ const Dashboard: React.FC = () => {
         try {
           const [dashRes, ordersRes] = await Promise.all([
             api.get('/admin/dashboard-json').catch(() => ({ data: { data: {} } })),
-            api.get('/admin/orders-json', { params: { per_page: 5 } }).catch(() => ({ data: { data: [] } })),
+            api.get('/admin/orders-json', { params: { per_page: 50 } }).catch(() => ({ data: { data: [] } })),
           ]);
           dashData = dashRes.data.data || dashRes.data || {};
           ordersData = Array.isArray(ordersRes.data.data) ? ordersRes.data.data : [];
@@ -52,8 +52,28 @@ const Dashboard: React.FC = () => {
         }
       }
 
-      const mapped = mapDashboardResponse(dashData);
-      const slicedOrders = ordersData.slice(0, 5);
+      // Calculate KPIs from orders if dashboard endpoint returned empty
+      let mapped = mapDashboardResponse(dashData);
+      if (mapped.sales_today === 0 && mapped.orders_today === 0 && ordersData.length > 0) {
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
+        const weekAgo = new Date(now.getTime() - 7 * 86400000);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const todayOrders = ordersData.filter(o => o.created_at?.slice(0, 10) === todayStr);
+        const weekOrders = ordersData.filter(o => new Date(o.created_at) >= weekAgo);
+        const monthOrders = ordersData.filter(o => new Date(o.created_at) >= monthStart);
+        mapped = {
+          sales_today: todayOrders.reduce((s, o) => s + (o.total || 0), 0),
+          sales_week: weekOrders.reduce((s, o) => s + (o.total || 0), 0),
+          sales_month: monthOrders.reduce((s, o) => s + (o.total || 0), 0),
+          orders_today: todayOrders.length,
+          orders_week: weekOrders.length,
+          new_customers_week: 0,
+          top_items: [],
+        };
+      }
+
+      const slicedOrders = ordersData.slice(0, 10);
       const stock = dashData?.low_stock_alerts || [];
 
       setKpis(mapped);
@@ -228,44 +248,39 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Recent Orders */}
+      {/* Ventas Recientes */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">Órdenes Recientes</h3>
+          <h3 className="font-semibold text-gray-900">Ventas Recientes</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b border-gray-100">
                 <th className="px-5 py-3 font-medium">ID</th>
-                <th className="px-5 py-3 font-medium">Items</th>
-                <th className="px-5 py-3 font-medium">Total</th>
-                <th className="px-5 py-3 font-medium">Estado</th>
-                <th className="px-5 py-3 font-medium">Fuente</th>
                 <th className="px-5 py-3 font-medium">Fecha</th>
+                <th className="px-5 py-3 font-medium">Cliente</th>
+                <th className="px-5 py-3 font-medium">Tipo de Venta</th>
+                <th className="px-5 py-3 font-medium">Estado</th>
+                <th className="px-5 py-3 font-medium text-right">Total</th>
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-5 py-3 font-mono text-xs text-gray-600">
-                    {order.order_number || order._id.slice(-6).toUpperCase()}
-                  </td>
-                  <td className="px-5 py-3 text-gray-700">
-                    {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                  </td>
-                  <td className="px-5 py-3 font-medium text-gray-900">{formatCurrency(order.total)}</td>
-                  <td className="px-5 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {statusLabels[order.status] || order.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 capitalize text-gray-600">{order.source}</td>
-                  <td className="px-5 py-3 text-gray-500">{new Date(order.created_at).toLocaleDateString('es-AR')}</td>
-                </tr>
-              ))}
+              {recentOrders.map((order) => {
+                const typeLabels: Record<string, string> = { dine_in: 'Local', takeout: 'Mostrador', delivery: 'Delivery' };
+                return (
+                  <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-5 py-3 font-mono text-xs text-gray-600">{order.order_number || order._id.slice(-6).toUpperCase()}</td>
+                    <td className="px-5 py-3 text-gray-500">{new Date(order.created_at).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
+                    <td className="px-5 py-3 text-gray-700">{(order as any).customer?.name || '—'}</td>
+                    <td className="px-5 py-3 text-gray-600">{typeLabels[order.type] || order.type || order.source}</td>
+                    <td className="px-5 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[order.status] || order.status}</span></td>
+                    <td className="px-5 py-3 font-medium text-gray-900 text-right">${formatCurrency(order.total)}</td>
+                  </tr>
+                );
+              })}
               {recentOrders.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No hay órdenes recientes</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No hay ventas recientes</td></tr>
               )}
             </tbody>
           </table>
