@@ -16,11 +16,36 @@ Route::get('/admin/migrate-fudo', function () {
     if ($secret !== 'sushiqueen2026migrate') {
         return response()->json(['error' => 'Unauthorized'], 401);
     }
+    $step = request()->query('step', 'all');
     try {
         set_time_limit(300);
+
+        if ($step === 'stats') {
+            // Update customer stats in batches of 50
+            $page = intval(request()->query('page', 1));
+            $perPage = 50;
+            $customers = \App\Models\Customer::skip(($page - 1) * $perPage)->take($perPage)->get();
+            $updated = 0;
+            foreach ($customers as $customer) {
+                if (!$customer->name) continue;
+                $stats = \App\Models\Order::raw(function ($col) use ($customer) {
+                    return $col->aggregate([
+                        ['$match' => ['customer.name' => $customer->name]],
+                        ['$group' => ['_id' => null, 'count' => ['$sum' => 1], 'total' => ['$sum' => '$total'], 'last' => ['$max' => '$created_at']]],
+                    ]);
+                })->first();
+                if ($stats) {
+                    $customer->update(['total_orders' => $stats['count'] ?? 0, 'total_spent' => round($stats['total'] ?? 0, 2), 'last_order_at' => $stats['last'] ?? null]);
+                }
+                $updated++;
+            }
+            $totalCustomers = \App\Models\Customer::count();
+            $hasMore = ($page * $perPage) < $totalCustomers;
+            return response()->json(['success' => true, 'step' => 'stats', 'updated' => $updated, 'page' => $page, 'total' => $totalCustomers, 'next' => $hasMore ? "stats&page=" . ($page + 1) : 'done']);
+        }
+
         \Illuminate\Support\Facades\Artisan::call('fudo:migrate', ['--fresh' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return response()->json(['success' => true, 'output' => $output]);
+        return response()->json(['success' => true, 'output' => \Illuminate\Support\Facades\Artisan::output()]);
     } catch (\Throwable $e) {
         return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
     }

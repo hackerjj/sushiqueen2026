@@ -35,11 +35,10 @@ class MigrateFudoToMongo extends Command
         $this->migrateMenu();
         $this->migrateCustomers();
         $this->migrateOrders();
-        $this->updateCustomerStats();
         $this->migrateIngredients();
         $this->migrateSuppliers();
         $this->migrateCashRegisters();
-        $this->info('✅ Migration complete!');
+        $this->info('✅ Migration complete! Run /api/admin/migrate-fudo?key=sushiqueen2026migrate&step=stats to update customer stats.');
     }
 
     private function migrateMenu()
