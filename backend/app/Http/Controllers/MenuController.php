@@ -269,4 +269,24 @@ class MenuController extends Controller
         ]);
     }
 
+    /**
+     * Seed menu items from menuData.ts JSON payload (admin).
+     */
+    public function seed(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.name' => 'required|string',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.category' => 'required|string',
+        ]);
+
+        $result = \App\Console\Commands\SeedMenuFromData::seedMenu($validated['items']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Menu seeded successfully',
+            'data' => $result,
+        ]);
+    }
 }

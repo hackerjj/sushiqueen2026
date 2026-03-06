@@ -83,6 +83,7 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::get('/menu', [MenuController::class, 'adminIndex']);
     Route::get('/menu/export-csv', [MenuController::class, 'exportCsv']);
     Route::post('/menu/import-csv', [MenuController::class, 'importCsv']);
+    Route::post('/menu/seed', [MenuController::class, 'seed']);
     Route::post('/menu', [MenuController::class, 'store']);
     Route::put('/menu/{id}', [MenuController::class, 'update']);
     Route::post('/menu/{id}/image', [MenuController::class, 'uploadImage']);

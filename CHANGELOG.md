@@ -1,5 +1,42 @@
 # Changelog - MealLi POS (Sushi Queen)
 
+## v2.4.0 — 2026-03-06
+
+### Menu Unification — Fuente Única de Verdad
+- Nuevo comando `php artisan menu:seed-from-data` — upsert de 104 ítems de menuData.ts a MongoDB por nombre, preserva _ids, soft-delete de extras
+- Nuevo endpoint `POST /api/admin/menu/seed` — seed vía API protegido con JWT
+- Script `frontend/scripts/exportMenuData.cjs` — exporta menuData.ts a JSON para seed
+- `useMenu()` hook ahora llama a `/api/menu` en vez de leer menuData.ts estático (fallback a menuData si API falla)
+- POS: eliminado `enrichImages()` y dependencia de menuData.ts — MongoDB tiene imágenes correctas después del seed
+- AIChatbot: ahora usa datos de API en vez de menuData.ts estático
+
+### Dashboard Top Items — Cantidades Reales
+- Filtro de items Fudo "Venta #..." a nivel de pipeline MongoDB (no se cuentan como productos)
+- Solo órdenes POS con nombres reales de productos se agregan para Top Items
+- Revenue de Fudo se muestra por separado como contexto
+- Nota "Sin datos de productos — basado en menú" cuando no hay órdenes POS
+
+### Clientes — Top 5 Productos
+- `CustomerController::show()` ahora incluye `top_products` — top 5 productos más pedidos por cliente
+- Frontend: sección "Productos Más Pedidos" en modal de detalle de cliente con tabla rankeada
+
+### Archivos modificados
+- `backend/app/Console/Commands/SeedMenuFromData.php` (NUEVO)
+- `backend/app/Http/Controllers/MenuController.php` — endpoint seed
+- `backend/app/Http/Controllers/OrderController.php` — dashboard top items con filtro Fudo
+- `backend/app/Http/Controllers/CustomerController.php` — top_products aggregation
+- `backend/routes/api.php` — ruta seed
+- `backend/storage/app/menu_seed_data.json` (NUEVO)
+- `frontend/scripts/exportMenuData.cjs` (NUEVO)
+- `frontend/src/hooks/useMenu.ts` — API call con fallback
+- `frontend/src/pages/admin/POS.tsx` — eliminado enrichImages
+- `frontend/src/pages/admin/Customers.tsx` — top products en detail modal
+- `frontend/src/pages/admin/Dashboard.tsx` — top_items_note display
+- `frontend/src/components/chat/AIChatbot.tsx` — API call con fallback
+- `frontend/src/components/admin/AdminLayout.tsx` — versión v2.4.0
+- `frontend/src/types/index.ts` — top_items_note, fudo_revenue types
+- `frontend/src/utils/mapDashboardResponse.ts` — nuevos campos
+
 ## v2.3.0 — 2026-03-06
 
 ### Fixes

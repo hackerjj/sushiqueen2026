@@ -28,8 +28,15 @@ const orderTypeColors: Record<string, string> = {
   app: 'bg-purple-100 text-purple-700',
 };
 
+interface TopProduct {
+  name: string;
+  quantity: number;
+  total_spent: number;
+}
+
 interface CustomerDetail extends Customer {
   orders?: Order[];
+  top_products?: TopProduct[];
 }
 
 const Customers: React.FC = () => {
@@ -91,7 +98,7 @@ const Customers: React.FC = () => {
       try {
         const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
         if (data.data) {
-          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
+          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [], top_products: data.data.top_products || [] });
         } else {
           setDetail({ ...customer, orders: [] });
         }
@@ -99,7 +106,7 @@ const Customers: React.FC = () => {
         // If fallback fails, try MongoDB endpoint
         const { data } = await api.get<ApiResponse<any>>(`/admin/customers/${customer._id}`);
         if (data.data) {
-          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [] });
+          setDetail({ ...data.data.customer || data.data, orders: data.data.orders || [], top_products: data.data.top_products || [] });
         } else {
           setDetail({ ...customer, orders: [] });
         }
@@ -342,6 +349,39 @@ const Customers: React.FC = () => {
                       <p className="text-2xl font-bold text-gray-900">{formatCurrency(detail.total_orders > 0 ? detail.total_spent / detail.total_orders : 0)}</p>
                       <p className="text-xs text-gray-500">Ticket Promedio</p>
                     </div>
+                  </div>
+
+                  {/* Top Products */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">Productos Más Pedidos</h5>
+                    {detail.top_products && detail.top_products.length > 0 ? (
+                      <div className="bg-gray-50 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-gray-500 border-b border-gray-200">
+                              <th className="px-3 py-2 font-medium">#</th>
+                              <th className="px-3 py-2 font-medium">Producto</th>
+                              <th className="px-3 py-2 font-medium text-right">Cantidad</th>
+                              <th className="px-3 py-2 font-medium text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detail.top_products.map((product, index) => (
+                              <tr key={index} className="border-b border-gray-100 last:border-0">
+                                <td className="px-3 py-2 text-gray-400 font-medium">{index + 1}</td>
+                                <td className="px-3 py-2 text-gray-900">{product.name}</td>
+                                <td className="px-3 py-2 text-gray-600 text-right">{product.quantity}</td>
+                                <td className="px-3 py-2 text-gray-900 text-right font-medium">${formatCurrency(product.total_spent)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-4 text-center text-sm text-gray-400">
+                        Sin datos de productos
+                      </div>
+                    )}
                   </div>
 
                   {/* Contact Info */}

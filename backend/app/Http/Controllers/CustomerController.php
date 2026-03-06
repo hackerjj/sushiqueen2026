@@ -161,6 +161,30 @@ class CustomerController extends Controller
         $totalSpent = $metrics->total_spent ?? 0;
         $lastOrderAt = $metrics->last_order_at ?? $customer->last_order_at;
 
+        // Top 5 products: aggregate from order items, filtering out Fudo "Venta #..." placeholders
+        $topProductsRaw = Order::raw(function ($collection) use ($customer) {
+            return $collection->aggregate([
+                ['$match' => ['customer_id' => (string) $customer->_id]],
+                ['$unwind' => '$items'],
+                ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
+                ['$group' => [
+                    '_id' => '$items.name',
+                    'quantity' => ['$sum' => '$items.quantity'],
+                    'total_spent' => ['$sum' => '$items.line_total'],
+                ]],
+                ['$sort' => ['quantity' => -1]],
+                ['$limit' => 5],
+            ]);
+        });
+
+        $topProducts = collect(iterator_to_array($topProductsRaw))->map(function ($item) {
+            return [
+                'name' => $item->_id ?? $item['_id'] ?? '',
+                'quantity' => $item->quantity ?? $item['quantity'] ?? 0,
+                'total_spent' => $item->total_spent ?? $item['total_spent'] ?? 0,
+            ];
+        })->values()->all();
+
         return response()->json([
             'data' => [
                 'customer' => $customer,
@@ -177,6 +201,7 @@ class CustomerController extends Controller
                 'ai_profile' => $customer->ai_profile,
                 'preferences' => $customer->preferences,
                 'last_order_at' => $lastOrderAt,
+                'top_products' => $topProducts,
             ],
         ]);
     }
