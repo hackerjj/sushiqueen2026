@@ -1,5 +1,23 @@
 # Changelog - MealLi POS (Sushi Queen)
 
+## v2.2.0 — 2026-03-06
+
+### Fixes
+- Gastos movido debajo de Ventas en menú lateral
+- Mesas en POS: cuadros de 70px que respetan grid de configuración
+- Fechas "Invalid Date" arregladas en Caja y Gastos (parseo de formato "YYYY-MM-DD HH:MM:SS")
+- Removidos casts 'array' de modelos MongoDB que causaban json_decode error
+- Migración usa MongoDB UTCDateTime para todas las fechas
+- Gastos migrados desde Excel (3,581 registros de 6 archivos)
+- Proveedores: ahora guarda contact_name, phone, address, tax_id, notes
+- Versión actualizada a v2.2.0
+
+### Pendientes conocidos
+- Inventario: verificar que nombres se muestren correctamente después de re-migración
+- Proveedores: verificar datos después de re-migración
+- Clientes: total gastado requiere re-correr step=stats después de migración
+- Dashboard: Top Items muestra "Venta #" (las órdenes de Fudo no tienen detalle de productos)
+
 ## v2.1.0 — 2026-03-06
 
 ### POS - Punto de Venta
