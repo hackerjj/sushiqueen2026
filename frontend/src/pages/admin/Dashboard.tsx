@@ -161,7 +161,7 @@ const Dashboard: React.FC = () => {
                   <td className="px-5 py-3 text-gray-700">{(order as any).customer?.name || '—'}</td>
                   <td className="px-5 py-3 text-gray-600">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[order.type] || order.type || '—'}</td>
                   <td className="px-5 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[order.status] || order.status}</span></td>
-                  <td className="px-5 py-3 font-medium text-gray-900 text-right">${fmt(order.total)}</td>
+                  <td className="px-5 py-3 font-medium text-gray-900 text-right">{fmt(order.total)}</td>
                 </tr>
               ))}
               {recentOrders.length === 0 && <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No hay ventas recientes</td></tr>}
@@ -196,8 +196,8 @@ const Dashboard: React.FC = () => {
                           {item.modifiers && item.modifiers.length > 0 && <p className="text-xs text-gray-400">{item.modifiers.map((m: any) => m.name).join(', ')}</p>}
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium">{item.quantity} × ${fmt(item.price)}</p>
-                          <p className="text-xs text-gray-500">${fmt(item.quantity * item.price)}</p>
+                          <p className="text-sm font-medium">{item.quantity} × {fmt(item.price)}</p>
+                          <p className="text-xs text-gray-500">{fmt(item.quantity * item.price)}</p>
                         </div>
                       </div>
                     ))}
@@ -207,7 +207,7 @@ const Dashboard: React.FC = () => {
               {selectedOrder.notes && <div><span className="text-gray-500 text-sm">Notas:</span><p className="text-sm">{selectedOrder.notes}</p></div>}
               <div className="border-t border-gray-100 pt-3 flex justify-between">
                 <span className="font-semibold text-gray-900">Total</span>
-                <span className="font-bold text-xl text-sushi-primary">${fmt(selectedOrder.total)}</span>
+                <span className="font-bold text-xl text-sushi-primary">{fmt(selectedOrder.total)}</span>
               </div>
             </div>
           </div>
