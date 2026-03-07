@@ -164,6 +164,7 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
     Route::get('/reports/sales', [ReportController::class, 'salesReport']);
     Route::get('/reports/customers', [ReportController::class, 'customerReport']);
     Route::get('/reports/products', [ReportController::class, 'productReport']);
+    Route::get('/reports/product-sales', [ReportController::class, 'productSalesReport']);
     Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
 });
 
