@@ -16,6 +16,7 @@ const Dashboard: React.FC = () => {
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [filterMonth, setFilterMonth] = useState(String(new Date().getMonth() + 1));
   const [filterDay, setFilterDay] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   useEffect(() => { if (!isAuthenticated) navigate('/admin/login'); }, [isAuthenticated, navigate]);
 
@@ -63,7 +64,7 @@ const Dashboard: React.FC = () => {
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(''); setFilterDay(''); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Año</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+          <option value="">Año</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option>
         </select>
         {filterYear && (
           <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setFilterDay(''); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -154,13 +155,13 @@ const Dashboard: React.FC = () => {
             </tr></thead>
             <tbody>
               {recentOrders.map(order => (
-                <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr key={order._id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrder(order)}>
                   <td className="px-5 py-3 font-mono text-xs text-gray-600">{order.order_number || order._id.slice(-6).toUpperCase()}</td>
                   <td className="px-5 py-3 text-gray-500">{new Date(order.created_at).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
                   <td className="px-5 py-3 text-gray-700">{(order as any).customer?.name || '—'}</td>
                   <td className="px-5 py-3 text-gray-600">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[order.type] || order.type || order.source}</td>
                   <td className="px-5 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[order.status] || order.status}</span></td>
-                  <td className="px-5 py-3 font-medium text-gray-900 text-right">{fmt(order.total)}</td>
+                  <td className="px-5 py-3 font-medium text-gray-900 text-right">${fmt(order.total)}</td>
                 </tr>
               ))}
               {recentOrders.length === 0 && <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No hay ventas recientes</td></tr>}
@@ -168,6 +169,51 @@ const Dashboard: React.FC = () => {
           </table>
         </div>
       </div>
+      {/* Order Detail Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedOrder(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-semibold text-gray-900">Venta #{selectedOrder.order_number || selectedOrder._id.slice(-6).toUpperCase()}</h3>
+              <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-gray-500">Fecha:</span><p className="font-medium">{new Date(selectedOrder.created_at).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p></div>
+                <div><span className="text-gray-500">Estado:</span><p><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[selectedOrder.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[selectedOrder.status] || selectedOrder.status}</span></p></div>
+                <div><span className="text-gray-500">Cliente:</span><p className="font-medium">{(selectedOrder as any).customer?.name || '—'}</p></div>
+                <div><span className="text-gray-500">Tipo:</span><p className="font-medium">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[selectedOrder.type] || selectedOrder.type || '—'}</p></div>
+                <div><span className="text-gray-500">Pago:</span><p className="font-medium">{({ cash:'Efectivo', card:'Tarjeta', transfer:'Transferencia' } as Record<string,string>)[(selectedOrder as any).payment_method] || (selectedOrder as any).payment_method || '—'}</p></div>
+                <div><span className="text-gray-500">Fuente:</span><p className="font-medium">{selectedOrder.source || '—'}</p></div>
+              </div>
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Productos</h4>
+                  <div className="border border-gray-100 rounded-lg divide-y divide-gray-50">
+                    {selectedOrder.items.map((item: any, i: number) => (
+                      <div key={i} className="px-4 py-2 flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                          {item.modifiers && item.modifiers.length > 0 && <p className="text-xs text-gray-400">{item.modifiers.map((m: any) => m.name).join(', ')}</p>}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{item.quantity} × ${fmt(item.price)}</p>
+                          <p className="text-xs text-gray-500">${fmt(item.quantity * item.price)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedOrder.notes && <div><span className="text-gray-500 text-sm">Notas:</span><p className="text-sm">{selectedOrder.notes}</p></div>}
+              <div className="border-t border-gray-100 pt-3 flex justify-between">
+                <span className="font-semibold text-gray-900">Total</span>
+                <span className="font-bold text-xl text-sushi-primary">${fmt(selectedOrder.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };

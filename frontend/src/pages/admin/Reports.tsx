@@ -80,7 +80,7 @@ const Reports: React.FC = () => {
           ))}
         </div>
         <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterMonth(''); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+          <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option>
         </select>
         <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Todo el año</option>
