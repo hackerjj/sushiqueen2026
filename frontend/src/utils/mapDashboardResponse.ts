@@ -19,5 +19,6 @@ export function mapDashboardResponse(raw: any): DashboardKPIs {
     top_items_note: raw?.top_items_note ?? null,
     fudo_revenue: raw?.fudo_revenue ?? { total: 0, count: 0 },
     last_day_label: raw?.last_day_label ?? null,
+    sales_by_category: Array.isArray(raw?.sales_by_category) ? raw.sales_by_category : [],
   };
 }

@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class OrderController extends Controller
@@ -355,33 +356,60 @@ class OrderController extends Controller
             $totalCustomers = Customer::count();
             $newCustomers = Customer::where('created_at', '>=', Carbon::now()->subDays(60))->count();
 
-            // Top Items from real POS orders (exclude Fudo "Venta #..." placeholders)
-            $topItems = Order::raw(function ($collection) use ($startOfMonth) {
-                return $collection->aggregate([
-                    ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
-                    ['$unwind' => '$items'],
-                    ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
-                    ['$group' => [
-                        '_id' => '$items.name',
-                        'quantity' => ['$sum' => '$items.quantity'],
-                        'revenue' => ['$sum' => '$items.line_total'],
-                    ]],
-                    ['$sort' => ['quantity' => -1]],
-                    ['$limit' => 10],
-                ]);
-            });
-
-            $topItemsArray = collect(iterator_to_array($topItems))->map(function ($item) {
-                return [
-                    '_id' => $item->_id ?? $item['_id'] ?? '',
-                    'name' => $item->_id ?? $item['_id'] ?? '',
-                    'quantity' => $item->quantity ?? $item['quantity'] ?? 0,
-                    'revenue' => $item->revenue ?? $item['revenue'] ?? 0,
-                ];
-            })->values()->all();
-
-            // Fallback: show menu items with 0 quantity
+            // Top Items: first try product_sales collection (Fudo data with real product names)
+            $topItemsArray = [];
             $topItemsFallback = false;
+            try {
+                $productSales = DB::connection('mongodb')->collection('product_sales')
+                    ->raw(function ($collection) use ($startOfMonth) {
+                        return $collection->aggregate([
+                            ['$match' => ['date' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
+                            ['$group' => [
+                                '_id' => '$product_name',
+                                'quantity' => ['$sum' => '$quantity'],
+                                'revenue' => ['$sum' => '$revenue'],
+                            ]],
+                            ['$sort' => ['quantity' => -1]],
+                            ['$limit' => 15],
+                        ]);
+                    });
+                $topItemsArray = collect(iterator_to_array($productSales))->map(function ($item) {
+                    return [
+                        'name' => $item->_id ?? $item['_id'] ?? '',
+                        'quantity' => intval($item->quantity ?? $item['quantity'] ?? 0),
+                        'revenue' => floatval($item->revenue ?? $item['revenue'] ?? 0),
+                    ];
+                })->values()->all();
+            } catch (\Throwable $e) {
+                // product_sales collection may not exist yet
+            }
+
+            // Fallback to POS order items if no product_sales data
+            if (empty($topItemsArray)) {
+                $topItems = Order::raw(function ($collection) use ($startOfMonth) {
+                    return $collection->aggregate([
+                        ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
+                        ['$unwind' => '$items'],
+                        ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
+                        ['$group' => [
+                            '_id' => '$items.name',
+                            'quantity' => ['$sum' => '$items.quantity'],
+                            'revenue' => ['$sum' => '$items.line_total'],
+                        ]],
+                        ['$sort' => ['quantity' => -1]],
+                        ['$limit' => 10],
+                    ]);
+                });
+                $topItemsArray = collect(iterator_to_array($topItems))->map(function ($item) {
+                    return [
+                        'name' => $item->_id ?? $item['_id'] ?? '',
+                        'quantity' => intval($item->quantity ?? $item['quantity'] ?? 0),
+                        'revenue' => floatval($item->revenue ?? $item['revenue'] ?? 0),
+                    ];
+                })->values()->all();
+            }
+
+            // Final fallback: menu items
             if (empty($topItemsArray)) {
                 $topItemsFallback = true;
                 $topItemsArray = MenuItem::where('available', true)
@@ -389,12 +417,35 @@ class OrderController extends Controller
                     ->limit(10)
                     ->get()
                     ->map(fn ($item) => [
-                        '_id' => $item->name,
                         'name' => $item->name,
                         'quantity' => 0,
                         'revenue' => 0,
                     ])->all();
             }
+
+            // Sales by category from product_sales
+            $salesByCategory = [];
+            try {
+                $catSales = DB::connection('mongodb')->collection('product_sales')
+                    ->raw(function ($collection) use ($startOfMonth) {
+                        return $collection->aggregate([
+                            ['$match' => ['date' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
+                            ['$group' => [
+                                '_id' => '$category',
+                                'quantity' => ['$sum' => '$quantity'],
+                                'revenue' => ['$sum' => '$revenue'],
+                            ]],
+                            ['$sort' => ['revenue' => -1]],
+                        ]);
+                    });
+                $salesByCategory = collect(iterator_to_array($catSales))->map(function ($item) {
+                    return [
+                        'category' => $item->_id ?? $item['_id'] ?? 'Otros',
+                        'quantity' => intval($item->quantity ?? $item['quantity'] ?? 0),
+                        'revenue' => floatval($item->revenue ?? $item['revenue'] ?? 0),
+                    ];
+                })->values()->all();
+            } catch (\Throwable $e) { /* ignore */ }
 
             // Fudo-only revenue
             $fudoRevenue = Order::raw(function ($collection) use ($startOfMonth) {
@@ -427,6 +478,7 @@ class OrderController extends Controller
                 'pending_orders' => $pendingOrders,
                 'total_customers' => $totalCustomers,
                 'top_items' => $topItemsArray,
+                'sales_by_category' => $salesByCategory,
                 'top_items_fallback' => $topItemsFallback,
                 'top_items_note' => $topItemsFallback ? 'Sin datos de productos — basado en menú' : null,
                 'last_day_label' => $lastDayLabel,

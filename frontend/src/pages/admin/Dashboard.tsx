@@ -147,29 +147,45 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Revenue by Source */}
+        {/* Revenue by Category */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Ventas por Semana</h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Hoy', value: kpis?.sales_today || 0, max: kpis?.sales_month || 1 },
-              { label: 'Semana', value: kpis?.sales_week || 0, max: kpis?.sales_month || 1 },
-              { label: 'Mes', value: kpis?.sales_month || 0, max: kpis?.sales_month || 1 },
-            ].map((row) => (
-              <div key={row.label}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">{row.label}</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(row.value)}</span>
+          <h3 className="font-semibold text-gray-900 mb-4">Ventas por Categoría</h3>
+          {kpis?.sales_by_category && kpis.sales_by_category.length > 0 ? (
+            <div className="space-y-2">
+              {kpis.sales_by_category.slice(0, 8).map((cat) => {
+                const maxRev = kpis.sales_by_category![0]?.revenue || 1;
+                return (
+                  <div key={cat.category}>
+                    <div className="flex justify-between text-xs mb-0.5">
+                      <span className="text-gray-600 truncate">{cat.category}</span>
+                      <span className="font-medium text-gray-900">${formatCurrency(cat.revenue)}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="bg-sushi-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((cat.revenue / maxRev) * 100, 100)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {[
+                { label: 'Hoy', value: kpis?.sales_today || 0, max: kpis?.sales_month || 1 },
+                { label: 'Semana', value: kpis?.sales_week || 0, max: kpis?.sales_month || 1 },
+                { label: 'Mes', value: kpis?.sales_month || 0, max: kpis?.sales_month || 1 },
+              ].map((row) => (
+                <div key={row.label}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">{row.label}</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(row.value)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="bg-sushi-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((row.value / row.max) * 100, 100)}%` }} />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div
-                    className="bg-sushi-primary h-2 rounded-full transition-all"
-                    style={{ width: `${Math.min((row.value / row.max) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Orders by Source */}
