@@ -328,129 +328,116 @@ class OrderController extends Controller
             $startOfWeek = Carbon::now()->startOfWeek();
             $startOfMonth = Carbon::now()->startOfMonth();
 
-        $todayOrders = Order::where('created_at', '>=', $today)->get();
-        $weekOrders = Order::where('created_at', '>=', $startOfWeek)->get();
-        $monthOrders = Order::where('created_at', '>=', $startOfMonth)->get();
+            $todayOrders = Order::where('created_at', '>=', $today)->get();
+            $weekOrders = Order::where('created_at', '>=', $startOfWeek)->get();
+            $monthOrders = Order::where('created_at', '>=', $startOfMonth)->get();
 
-        $todayRevenue = $todayOrders->sum('total');
-        $weekRevenue = $weekOrders->sum('total');
-        $monthRevenue = $monthOrders->sum('total');
+            $todayRevenue = $todayOrders->sum('total');
+            $weekRevenue = $weekOrders->sum('total');
+            $monthRevenue = $monthOrders->sum('total');
 
-        $pendingOrders = Order::where('status', 'pending')->count();
-        $totalCustomers = Customer::count();
-        $newCustomers = Customer::where('created_at', '>=', Carbon::now()->subDays(60))->count();
+            // If no sales today, show last day that had sales
+            $lastDayLabel = null;
+            if ($todayRevenue == 0) {
+                $lastOrder = Order::where('total', '>', 0)->orderBy('created_at', 'desc')->first();
+                if ($lastOrder) {
+                    $lastDate = Carbon::parse($lastOrder->created_at);
+                    $lastDayStart = $lastDate->copy()->startOfDay();
+                    $lastDayEnd = $lastDate->copy()->endOfDay();
+                    $lastDayOrders = Order::whereBetween('created_at', [$lastDayStart, $lastDayEnd])->get();
+                    $todayRevenue = $lastDayOrders->sum('total');
+                    $todayOrders = $lastDayOrders;
+                    $lastDayLabel = $lastDate->format('d/m');
+                }
+            }
 
-        $ordersByStatus = Order::raw(function ($collection) {
-            return $collection->aggregate([
-                ['$group' => ['_id' => '$status', 'count' => ['$sum' => 1]]],
-            ]);
-        });
+            $pendingOrders = Order::where('status', 'pending')->count();
+            $totalCustomers = Customer::count();
+            $newCustomers = Customer::where('created_at', '>=', Carbon::now()->subDays(60))->count();
 
-        // Top Items: aggregate only real product names (exclude Fudo "Venta #..." placeholders).
-        // Fudo orders have generic items like {name: "Venta #12345"} with no real product detail,
-        // so we filter them out at the pipeline level and only count POS/real orders.
-        $topItems = Order::raw(function ($collection) use ($startOfMonth) {
-            return $collection->aggregate([
-                ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
-                ['$unwind' => '$items'],
-                ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
-                ['$group' => [
-                    '_id' => '$items.name',
-                    'quantity' => ['$sum' => '$items.quantity'],
-                    'revenue' => ['$sum' => '$items.line_total'],
-                ]],
-                ['$sort' => ['quantity' => -1]],
-                ['$limit' => 10],
-            ]);
-        });
+            // Top Items from real POS orders (exclude Fudo "Venta #..." placeholders)
+            $topItems = Order::raw(function ($collection) use ($startOfMonth) {
+                return $collection->aggregate([
+                    ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
+                    ['$unwind' => '$items'],
+                    ['$match' => ['items.name' => ['$not' => new \MongoDB\BSON\Regex('^Venta #', 'i')]]],
+                    ['$group' => [
+                        '_id' => '$items.name',
+                        'quantity' => ['$sum' => '$items.quantity'],
+                        'revenue' => ['$sum' => '$items.line_total'],
+                    ]],
+                    ['$sort' => ['quantity' => -1]],
+                    ['$limit' => 10],
+                ]);
+            });
 
-        $topItemsArray = collect(iterator_to_array($topItems))->map(function ($item) {
-            return [
-                '_id' => $item->_id ?? $item['_id'] ?? '',
-                'name' => $item->_id ?? $item['_id'] ?? '',
-                'quantity' => $item->quantity ?? $item['quantity'] ?? 0,
-                'revenue' => $item->revenue ?? $item['revenue'] ?? 0,
+            $topItemsArray = collect(iterator_to_array($topItems))->map(function ($item) {
+                return [
+                    '_id' => $item->_id ?? $item['_id'] ?? '',
+                    'name' => $item->_id ?? $item['_id'] ?? '',
+                    'quantity' => $item->quantity ?? $item['quantity'] ?? 0,
+                    'revenue' => $item->revenue ?? $item['revenue'] ?? 0,
+                ];
+            })->values()->all();
+
+            // Fallback: show menu items with 0 quantity
+            $topItemsFallback = false;
+            if (empty($topItemsArray)) {
+                $topItemsFallback = true;
+                $topItemsArray = MenuItem::where('available', true)
+                    ->orderBy('sort_order')
+                    ->limit(10)
+                    ->get()
+                    ->map(fn ($item) => [
+                        '_id' => $item->name,
+                        'name' => $item->name,
+                        'quantity' => 0,
+                        'revenue' => 0,
+                    ])->all();
+            }
+
+            // Fudo-only revenue
+            $fudoRevenue = Order::raw(function ($collection) use ($startOfMonth) {
+                return $collection->aggregate([
+                    ['$match' => [
+                        'created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)],
+                        'source' => 'fudo',
+                    ]],
+                    ['$group' => [
+                        '_id' => null,
+                        'total' => ['$sum' => '$total'],
+                        'count' => ['$sum' => 1],
+                    ]],
+                ]);
+            });
+            $fudoRevenueData = collect(iterator_to_array($fudoRevenue))->first();
+            $fudoRevenueSummary = [
+                'total' => $fudoRevenueData->total ?? $fudoRevenueData['total'] ?? 0,
+                'count' => $fudoRevenueData->count ?? $fudoRevenueData['count'] ?? 0,
             ];
-        })->values()->all();
 
-        // Fallback: if no POS orders with real product names exist yet,
-        // show menu items with quantity 0 and a note for the frontend.
-        $topItemsFallback = false;
-        if (empty($topItemsArray)) {
-            $topItemsFallback = true;
-            $topItemsArray = MenuItem::where('available', true)
-                ->orderBy('sort_order')
-                ->limit(10)
-                ->get()
-                ->map(fn ($item) => [
-                    '_id' => $item->name,
-                    'name' => $item->name,
-                    'quantity' => 0,
-                    'revenue' => 0,
-                ])->all();
-        }
-
-        // Calculate Fudo-only revenue for context (orders with no real product detail).
-        $fudoRevenue = Order::raw(function ($collection) use ($startOfMonth) {
-            return $collection->aggregate([
-                ['$match' => [
-                    'created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)],
-                    'source' => 'fudo',
-                ]],
-                ['$group' => [
-                    '_id' => null,
-                    'total' => ['$sum' => '$total'],
-                    'count' => ['$sum' => 1],
-                ]],
+            return response()->json([
+                'sales_today' => $todayRevenue,
+                'sales_week' => $weekRevenue,
+                'sales_month' => $monthRevenue,
+                'orders_today' => $todayOrders->count(),
+                'orders_week' => $weekOrders->count(),
+                'orders_month' => $monthOrders->count(),
+                'new_customers_week' => $newCustomers,
+                'pending_orders' => $pendingOrders,
+                'total_customers' => $totalCustomers,
+                'top_items' => $topItemsArray,
+                'top_items_fallback' => $topItemsFallback,
+                'top_items_note' => $topItemsFallback ? 'Sin datos de productos — basado en menú' : null,
+                'last_day_label' => $lastDayLabel,
+                'fudo_revenue' => $fudoRevenueSummary,
             ]);
-        });
-        $fudoRevenueData = collect(iterator_to_array($fudoRevenue))->first();
-        $fudoRevenueSummary = [
-            'total' => $fudoRevenueData->total ?? $fudoRevenueData['total'] ?? 0,
-            'count' => $fudoRevenueData->count ?? $fudoRevenueData['count'] ?? 0,
-        ];
-
-        $revenueBySource = Order::raw(function ($collection) use ($startOfMonth) {
-            return $collection->aggregate([
-                ['$match' => ['created_at' => ['$gte' => new \MongoDB\BSON\UTCDateTime($startOfMonth->getTimestamp() * 1000)]]],
-                ['$group' => ['_id' => '$source', 'total' => ['$sum' => '$total'], 'count' => ['$sum' => 1]]],
-            ]);
-        });
-
-        return response()->json([
-            'today' => [
-                'orders' => $todayOrders->count(),
-                'revenue' => $todayRevenue,
-            ],
-            'week' => [
-                'orders' => $weekOrders->count(),
-                'revenue' => $weekRevenue,
-            ],
-            'month' => [
-                'orders' => $monthOrders->count(),
-                'revenue' => $monthRevenue,
-            ],
-            'orders_week' => $weekOrders->count(),
-            'sales_week' => $weekRevenue,
-            'new_customers_week' => $newCustomers,
-            'pending_orders' => $pendingOrders,
-            'total_customers' => $totalCustomers,
-            'orders_by_status' => $ordersByStatus,
-            'top_items' => $topItemsArray,
-            'top_items_fallback' => $topItemsFallback,
-            'top_items_note' => $topItemsFallback ? 'Sin datos de productos — basado en menú' : null,
-            'fudo_revenue' => $fudoRevenueSummary,
-            'revenue_by_source' => $revenueBySource,
-        ]);
         } catch (\Throwable $e) {
             return response()->json([
-                'today' => ['orders' => 0, 'revenue' => 0],
-                'month' => ['orders' => 0, 'revenue' => 0],
-                'pending_orders' => 0,
-                'total_customers' => 0,
-                'orders_by_status' => [],
-                'top_items' => [],
-                'revenue_by_source' => [],
+                'sales_today' => 0, 'sales_week' => 0, 'sales_month' => 0,
+                'orders_today' => 0, 'orders_week' => 0, 'orders_month' => 0,
+                'new_customers_week' => 0, 'pending_orders' => 0, 'total_customers' => 0,
+                'top_items' => [], 'fudo_revenue' => ['total' => 0, 'count' => 0],
                 'error' => $e->getMessage(),
             ]);
         }

@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
   const formatCurrency = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`;
 
   const kpiCards = kpis ? [
-    { label: 'Ventas Hoy', value: formatCurrency(kpis.sales_today), color: 'bg-green-500', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { label: kpis.last_day_label ? `Ventas ${kpis.last_day_label}` : 'Ventas Hoy', value: formatCurrency(kpis.sales_today), color: 'bg-green-500', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
     { label: 'Ventas Mes', value: formatCurrency(kpis.sales_month), color: 'bg-blue-500', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
     { label: 'Órdenes Hoy', value: kpis.orders_today.toString(), color: 'bg-sushi-primary', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
     { label: 'Nuevos Clientes', value: kpis.new_customers_week.toString(), color: 'bg-sushi-accent', icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z' },

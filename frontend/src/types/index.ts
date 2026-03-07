@@ -236,6 +236,7 @@ export interface DashboardKPIs {
   top_items: { name: string; count: number }[];
   top_items_note?: string | null;
   fudo_revenue?: { total: number; count: number };
+  last_day_label?: string | null;
 }
 
 export interface InsightData {
