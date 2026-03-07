@@ -149,6 +149,13 @@ class CashRegisterController extends Controller
             $query->where('name', $request->input('name'));
         }
 
+        if ($request->has('from')) {
+            $query->where('opened_at', '>=', \Carbon\Carbon::parse($request->input('from'))->startOfDay());
+        }
+        if ($request->has('to')) {
+            $query->where('opened_at', '<=', \Carbon\Carbon::parse($request->input('to'))->endOfDay());
+        }
+
         $registers = $query->orderBy('opened_at', 'desc')
             ->paginate($request->input('per_page', 50));
 

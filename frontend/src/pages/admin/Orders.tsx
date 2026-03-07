@@ -54,6 +54,10 @@ const Orders: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
+  // Year/month filter
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
@@ -147,6 +151,18 @@ const Orders: React.FC = () => {
       setLoading(true);
       const params: Record<string, string | number> = { page, per_page: perPage };
       if (selectedCustomer) { params.customer_name = selectedCustomer.name; }
+      if (filterYear) {
+        const y = parseInt(filterYear);
+        const m = filterMonth ? parseInt(filterMonth) : 0;
+        if (m > 0) {
+          params.from = `${y}-${String(m).padStart(2, '0')}-01`;
+          const lastDay = new Date(y, m, 0).getDate();
+          params.to = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+        } else {
+          params.from = `${y}-01-01`;
+          params.to = `${y}-12-31`;
+        }
+      }
 
       const { data } = await api.get('/admin/orders', { params });
       const list = Array.isArray(data.data) ? data.data : [];
@@ -185,7 +201,7 @@ const Orders: React.FC = () => {
       if (meta) { setTotalPages(meta.last_page || 1); setTotalVentas(meta.total || mapped.length); }
       else { setTotalVentas(mapped.length); }
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [page, perPage, selectedCustomer]);
+  }, [page, perPage, selectedCustomer, filterYear, filterMonth]);
 
   useEffect(() => { if (isAuthenticated) fetchVentas(); }, [fetchVentas, isAuthenticated]);
 
@@ -241,6 +257,29 @@ const Orders: React.FC = () => {
     <AdminLayout title="Gestión de Ventas">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Year filter */}
+        <div className="flex items-center gap-1">
+          <label className="text-sm text-gray-500">Año:</label>
+          <select value={filterYear} onChange={(e) => { setFilterYear(e.target.value); setPage(1); if (!e.target.value) setFilterMonth(''); }} className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+            <option value="">Todos</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+        {/* Month filter */}
+        {filterYear && (
+          <div className="flex items-center gap-1">
+            <label className="text-sm text-gray-500">Mes:</label>
+            <select value={filterMonth} onChange={(e) => { setFilterMonth(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+              <option value="">Todos</option>
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+        )}
         {/* Customer search filter */}
         <div className="relative" ref={dropdownRef}>
           <label className="text-sm text-gray-500 mr-1">Cliente:</label>

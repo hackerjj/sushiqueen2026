@@ -32,16 +32,16 @@ class ExpenseController extends Controller
                 default => null,
             };
             if ($startDate) {
-                $query->where('date', '>=', $startDate->toDateString());
+                $query->where('date', '>=', $startDate);
             }
         }
 
         // Filter by custom date range
         if ($request->has('start_date') && $request->start_date) {
-            $query->where('date', '>=', $request->start_date);
+            $query->where('date', '>=', Carbon::parse($request->start_date)->startOfDay());
         }
         if ($request->has('end_date') && $request->end_date) {
-            $query->where('date', '<=', $request->end_date);
+            $query->where('date', '<=', Carbon::parse($request->end_date)->endOfDay());
         }
 
         $perPage = (int) $request->input('per_page', 50);
@@ -130,15 +130,15 @@ class ExpenseController extends Controller
                 default => null,
             };
             if ($startDate) {
-                $query->where('date', '>=', $startDate->toDateString());
+                $query->where('date', '>=', $startDate);
             }
         }
 
         if ($request->has('start_date') && $request->start_date) {
-            $query->where('date', '>=', $request->start_date);
+            $query->where('date', '>=', Carbon::parse($request->start_date)->startOfDay());
         }
         if ($request->has('end_date') && $request->end_date) {
-            $query->where('date', '<=', $request->end_date);
+            $query->where('date', '<=', Carbon::parse($request->end_date)->endOfDay());
         }
 
         $expenses = $query->get();
