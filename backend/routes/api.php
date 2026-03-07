@@ -228,3 +228,42 @@ Route::get('/migrate-fudo', function () {
         return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
     }
 });
+
+// ─── Post-deploy maintenance (menu seed + customer stats) ────────
+Route::get('/post-deploy', function () {
+    $secret = request()->query('key');
+    if ($secret !== 'sushiqueen2026migrate') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    $results = [];
+
+    // 1. Seed menu from data
+    try {
+        \Illuminate\Support\Facades\Artisan::call('menu:seed-from-data');
+        $results['menu_seed'] = trim(\Illuminate\Support\Facades\Artisan::output());
+    } catch (\Throwable $e) {
+        $results['menu_seed'] = 'ERROR: ' . $e->getMessage();
+    }
+
+    // 2. Recalculate customer stats (total_orders, total_spent)
+    try {
+        $customers = \App\Models\Customer::all();
+        $updated = 0;
+        foreach ($customers as $customer) {
+            $orders = \App\Models\Order::where('customer.phone', $customer->phone)->get();
+            $totalOrders = $orders->count();
+            $totalSpent = $orders->sum('total');
+            $customer->update([
+                'total_orders' => $totalOrders,
+                'total_spent' => $totalSpent,
+            ]);
+            $updated++;
+        }
+        $results['customer_stats'] = "Updated {$updated} customers";
+    } catch (\Throwable $e) {
+        $results['customer_stats'] = 'ERROR: ' . $e->getMessage();
+    }
+
+    return response()->json(['success' => true, 'results' => $results]);
+});
