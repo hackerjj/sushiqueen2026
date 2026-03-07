@@ -446,64 +446,60 @@ class ReportController extends Controller
             $startUtc = new \MongoDB\BSON\UTCDateTime($startDate->getTimestamp() * 1000);
             $endUtc = new \MongoDB\BSON\UTCDateTime($endDate->getTimestamp() * 1000);
 
+            // Get MongoDB collection directly
+            $connection = DB::connection('mongodb');
+            $db = $connection->getMongoDB();
+            $collection = $db->selectCollection('product_sales');
+
             // Top products
-            $topProducts = DB::connection('mongodb')->collection('product_sales')
-                ->raw(function ($collection) use ($startUtc, $endUtc) {
-                    return $collection->aggregate([
-                        ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
-                        ['$group' => ['_id' => '$product_name', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
-                        ['$sort' => ['quantity' => -1]],
-                        ['$limit' => 20],
-                    ]);
-                });
-            $topArr = collect(iterator_to_array($topProducts))->map(fn($i) => [
-                'name' => $i->_id ?? $i['_id'] ?? '', 'quantity' => intval($i->quantity ?? $i['quantity'] ?? 0), 'revenue' => floatval($i->revenue ?? $i['revenue'] ?? 0),
-            ])->values()->all();
+            $topCursor = $collection->aggregate([
+                ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
+                ['$group' => ['_id' => '$product_name', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
+                ['$sort' => ['quantity' => -1]],
+                ['$limit' => 20],
+            ]);
+            $topArr = [];
+            foreach ($topCursor as $doc) {
+                $topArr[] = ['name' => $doc['_id'] ?? '', 'quantity' => intval($doc['quantity'] ?? 0), 'revenue' => floatval($doc['revenue'] ?? 0)];
+            }
 
             // Totals
-            $totals = DB::connection('mongodb')->collection('product_sales')
-                ->raw(function ($collection) use ($startUtc, $endUtc) {
-                    return $collection->aggregate([
-                        ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
-                        ['$group' => ['_id' => null, 'total_qty' => ['$sum' => '$quantity'], 'total_rev' => ['$sum' => '$revenue']]],
-                    ]);
-                });
-            $totalsData = collect(iterator_to_array($totals))->first();
-            $totalQty = intval($totalsData->total_qty ?? $totalsData['total_qty'] ?? 0);
-            $totalRev = floatval($totalsData->total_rev ?? $totalsData['total_rev'] ?? 0);
+            $totalsCursor = $collection->aggregate([
+                ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
+                ['$group' => ['_id' => null, 'total_qty' => ['$sum' => '$quantity'], 'total_rev' => ['$sum' => '$revenue']]],
+            ]);
+            $totalsDoc = null;
+            foreach ($totalsCursor as $doc) { $totalsDoc = $doc; break; }
+            $totalQty = intval($totalsDoc['total_qty'] ?? 0);
+            $totalRev = floatval($totalsDoc['total_rev'] ?? 0);
 
             // By category
-            $byCategory = DB::connection('mongodb')->collection('product_sales')
-                ->raw(function ($collection) use ($startUtc, $endUtc) {
-                    return $collection->aggregate([
-                        ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
-                        ['$group' => ['_id' => '$category', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
-                        ['$sort' => ['revenue' => -1]],
-                    ]);
-                });
-            $catArr = collect(iterator_to_array($byCategory))->map(fn($i) => [
-                'category' => $i->_id ?? $i['_id'] ?? 'Otros', 'quantity' => intval($i->quantity ?? $i['quantity'] ?? 0), 'revenue' => floatval($i->revenue ?? $i['revenue'] ?? 0),
-            ])->values()->all();
+            $catCursor = $collection->aggregate([
+                ['$match' => ['date' => ['$gte' => $startUtc, '$lte' => $endUtc]]],
+                ['$group' => ['_id' => '$category', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
+                ['$sort' => ['revenue' => -1]],
+            ]);
+            $catArr = [];
+            foreach ($catCursor as $doc) {
+                $catArr[] = ['category' => $doc['_id'] ?? 'Otros', 'quantity' => intval($doc['quantity'] ?? 0), 'revenue' => floatval($doc['revenue'] ?? 0)];
+            }
 
-            // Monthly evolution (last 12 months from end date)
+            // Monthly evolution
             $evoStart = $endDate->copy()->subMonths(11)->startOfMonth();
             $evoStartUtc = new \MongoDB\BSON\UTCDateTime($evoStart->getTimestamp() * 1000);
-            $evolution = DB::connection('mongodb')->collection('product_sales')
-                ->raw(function ($collection) use ($evoStartUtc, $endUtc) {
-                    return $collection->aggregate([
-                        ['$match' => ['date' => ['$gte' => $evoStartUtc, '$lte' => $endUtc]]],
-                        ['$group' => [
-                            '_id' => ['year' => ['$year' => '$date'], 'month' => ['$month' => '$date']],
-                            'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue'],
-                        ]],
-                        ['$sort' => ['_id.year' => 1, '_id.month' => 1]],
-                    ]);
-                });
-            $evoArr = collect(iterator_to_array($evolution))->map(function ($i) {
-                $id = (array)($i->_id ?? $i['_id']);
-                $y = $id['year'] ?? 0; $m = $id['month'] ?? 0;
-                return ['month' => sprintf('%04d-%02d', $y, $m), 'quantity' => intval($i->quantity ?? $i['quantity'] ?? 0), 'revenue' => floatval($i->revenue ?? $i['revenue'] ?? 0)];
-            })->values()->all();
+            $evoCursor = $collection->aggregate([
+                ['$match' => ['date' => ['$gte' => $evoStartUtc, '$lte' => $endUtc]]],
+                ['$group' => [
+                    '_id' => ['year' => ['$year' => '$date'], 'month' => ['$month' => '$date']],
+                    'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue'],
+                ]],
+                ['$sort' => ['_id.year' => 1, '_id.month' => 1]],
+            ]);
+            $evoArr = [];
+            foreach ($evoCursor as $doc) {
+                $id = (array)$doc['_id'];
+                $evoArr[] = ['month' => sprintf('%04d-%02d', $id['year'] ?? 0, $id['month'] ?? 0), 'quantity' => intval($doc['quantity'] ?? 0), 'revenue' => floatval($doc['revenue'] ?? 0)];
+            }
 
             return response()->json([
                 'success' => true,

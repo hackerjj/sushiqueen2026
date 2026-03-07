@@ -371,24 +371,17 @@ class OrderController extends Controller
             $topItemsArray = [];
             $topItemsFallback = false;
             try {
-                $productSales = DB::connection('mongodb')->collection('product_sales')
-                    ->raw(function ($collection) use ($fromMongo, $toMongo) {
-                        return $collection->aggregate([
-                            ['$match' => ['date' => ['$gte' => $fromMongo, '$lte' => $toMongo]]],
-                            ['$group' => [
-                                '_id' => '$product_name',
-                                'quantity' => ['$sum' => '$quantity'],
-                                'revenue' => ['$sum' => '$revenue'],
-                            ]],
-                            ['$sort' => ['quantity' => -1]],
-                            ['$limit' => 15],
-                        ]);
-                    });
-                $topItemsArray = collect(iterator_to_array($productSales))->map(fn($item) => [
-                    'name' => $item->_id ?? $item['_id'] ?? '',
-                    'quantity' => intval($item->quantity ?? $item['quantity'] ?? 0),
-                    'revenue' => floatval($item->revenue ?? $item['revenue'] ?? 0),
-                ])->values()->all();
+                $db = DB::connection('mongodb')->getMongoDB();
+                $psCollection = $db->selectCollection('product_sales');
+                $psCursor = $psCollection->aggregate([
+                    ['$match' => ['date' => ['$gte' => $fromMongo, '$lte' => $toMongo]]],
+                    ['$group' => ['_id' => '$product_name', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
+                    ['$sort' => ['quantity' => -1]],
+                    ['$limit' => 15],
+                ]);
+                foreach ($psCursor as $doc) {
+                    $topItemsArray[] = ['name' => $doc['_id'] ?? '', 'quantity' => intval($doc['quantity'] ?? 0), 'revenue' => floatval($doc['revenue'] ?? 0)];
+                }
             } catch (\Throwable $e) { /* product_sales may not exist */ }
 
             // Fallback to POS items
@@ -419,19 +412,14 @@ class OrderController extends Controller
             // Sales by category (filtered)
             $salesByCategory = [];
             try {
-                $catSales = DB::connection('mongodb')->collection('product_sales')
-                    ->raw(function ($collection) use ($fromMongo, $toMongo) {
-                        return $collection->aggregate([
-                            ['$match' => ['date' => ['$gte' => $fromMongo, '$lte' => $toMongo]]],
-                            ['$group' => ['_id' => '$category', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
-                            ['$sort' => ['revenue' => -1]],
-                        ]);
-                    });
-                $salesByCategory = collect(iterator_to_array($catSales))->map(fn($item) => [
-                    'category' => $item->_id ?? $item['_id'] ?? 'Otros',
-                    'quantity' => intval($item->quantity ?? $item['quantity'] ?? 0),
-                    'revenue' => floatval($item->revenue ?? $item['revenue'] ?? 0),
-                ])->values()->all();
+                $catCursor = $psCollection->aggregate([
+                    ['$match' => ['date' => ['$gte' => $fromMongo, '$lte' => $toMongo]]],
+                    ['$group' => ['_id' => '$category', 'quantity' => ['$sum' => '$quantity'], 'revenue' => ['$sum' => '$revenue']]],
+                    ['$sort' => ['revenue' => -1]],
+                ]);
+                foreach ($catCursor as $doc) {
+                    $salesByCategory[] = ['category' => $doc['_id'] ?? 'Otros', 'quantity' => intval($doc['quantity'] ?? 0), 'revenue' => floatval($doc['revenue'] ?? 0)];
+                }
             } catch (\Throwable $e) { /* ignore */ }
 
             return response()->json([
