@@ -61,7 +61,9 @@ const POS: React.FC = () => {
 
   const searchCustomers = async (term: string) => { if (term.length < 1) { setCustomerMatches([]); setShowMatches(false); return; } try { const { data } = await api.get(`/admin/customers?search=${encodeURIComponent(term)}`); const matches = Array.isArray(data.data) ? data.data.slice(0, 10) : []; setCustomerMatches(matches); setShowMatches(true); } catch { setCustomerMatches([]); } };
   const selectCustomer = (c: CustomerMatch) => { setCustomerName(c.name); setCustomerPhone(c.phone || ''); if (c.email) setCustomerEmail(c.email); if (c.address) setCustomerAddress(c.address); setShowMatches(false); };
-  const categories = [...new Set(items.map(i => i.category))].sort();
+  const categories = [...new Set(items.map(i => i.category))];
+  const CATEGORY_ORDER = ['Especialidades', 'Sopas y Ramen', 'Entradas', 'Kushiages', 'Makis', 'Makis Especiales', 'Yakimeshi', 'Yakisoba', 'Teppanyaki', 'Tempuras', 'Paquetes', 'Pastas Queen', 'Postres', 'Bebidas'];
+  categories.sort((a, b) => { const ia = CATEGORY_ORDER.indexOf(a); const ib = CATEGORY_ORDER.indexOf(b); return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib); });
   const filtered = items.filter(i => { if (category && i.category !== category) return false; if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false; return true; });
   const productResults = useMemo(() => { if (!productSearch || productSearch.length < 2) return []; const q = productSearch.toLowerCase(); return items.filter(i => i.name.toLowerCase().includes(q)).slice(0, 8); }, [productSearch, items]);
   const popupFiltered = useMemo(() => { if (!popupCategory) return items; return items.filter(i => i.category === popupCategory); }, [popupCategory, items]);

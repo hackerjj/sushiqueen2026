@@ -27,6 +27,8 @@ const CashRegisterPage: React.FC = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
@@ -46,6 +48,18 @@ const CashRegisterPage: React.FC = () => {
     try {
       const params: Record<string, string | number> = { page: historyPage, per_page: 50 };
       if (filterStatus) params.status = filterStatus;
+      if (filterYear) {
+        const y = parseInt(filterYear);
+        const m = filterMonth ? parseInt(filterMonth) : 0;
+        if (m > 0) {
+          params.from = `${y}-${String(m).padStart(2, '0')}-01`;
+          const lastDay = new Date(y, m, 0).getDate();
+          params.to = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+        } else {
+          params.from = `${y}-01-01`;
+          params.to = `${y}-12-31`;
+        }
+      }
       const { data } = await api.get('/admin/cash-register', { params });
       const list = Array.isArray(data.data) ? data.data : [];
       setHistory(list);
@@ -57,7 +71,7 @@ const CashRegisterPage: React.FC = () => {
         setHistory(Array.isArray(data.data) ? data.data : []);
       } catch { /* ignore */ }
     }
-  }, [historyPage, filterStatus]);
+  }, [historyPage, filterStatus, filterYear, filterMonth]);
 
   useEffect(() => {
     if (isAuthenticated) { fetchCurrent(); fetchHistory(); }
@@ -89,7 +103,7 @@ const CashRegisterPage: React.FC = () => {
     } catch { /* ignore */ }
   };
 
-  const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+  const fmt = (n: number) => `${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
   const fmtDate = (d: any) => { if (!d) return '—'; try { let s = d; if (typeof d === 'object' && d.$date) s = typeof d.$date === 'string' ? d.$date : new Date(parseInt(d.$date.$numberLong || d.$date)).toISOString(); const dt = typeof s === 'string' ? new Date(s.replace(' ', 'T')) : new Date(s); if (isNaN(dt.getTime())) return '—'; return dt.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', timeZone: 'America/Mexico_City' }); } catch { return '—'; } };
   if (loading) {
     return (
@@ -286,6 +300,21 @@ const CashRegisterPage: React.FC = () => {
           <button onClick={() => { setOpenAmount(0); }} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium">+ Nuevo arqueo de caja</button>
         </div>
         <div className="px-5 py-3 border-b flex items-center gap-3">
+          <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setHistoryPage(1); if (!e.target.value) setFilterMonth(''); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">Año</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+          {filterYear && (
+            <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setHistoryPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="">Mes</option>
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          )}
           <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setHistoryPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
             <option value="">Estado</option>
             <option value="cerrado">Cerrado</option>
