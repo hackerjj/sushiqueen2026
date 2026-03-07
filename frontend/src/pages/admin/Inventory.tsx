@@ -213,14 +213,14 @@ const Inventory: React.FC = () => {
                   disabled={page <= 1}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
                 >
-                  Anterior
+                  ← Anterior
                 </button>
                 <button
                   onClick={() => setPage(p => Math.min(lastPage, p + 1))}
                   disabled={page >= lastPage}
                   className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
                 >
-                  Siguiente
+                  Siguiente →
                 </button>
               </div>
             </div>

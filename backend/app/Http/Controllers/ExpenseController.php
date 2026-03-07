@@ -44,12 +44,10 @@ class ExpenseController extends Controller
             $query->where('date', '<=', $request->end_date);
         }
 
-        $expenses = $query->orderBy('date', 'desc')->get();
+        $perPage = (int) $request->input('per_page', 50);
+        $expenses = $query->orderBy('date', 'desc')->paginate($perPage);
 
-        return response()->json([
-            'data' => $expenses,
-            'total' => $expenses->count(),
-        ]);
+        return response()->json($expenses);
     }
 
     /**

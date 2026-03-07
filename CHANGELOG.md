@@ -1,5 +1,32 @@
 # Changelog - MealLi POS (Sushi Queen)
 
+## v2.4.1 — 2026-03-06
+
+### Admin Fixes — Revisión Post-Deploy v2.4.0
+- **Gastos paginación**: Backend pagina con `per_page`, frontend con selector Por página (50/100/200/400) y botones Anterior/Siguiente arriba de la tabla
+- **Menú orden categorías**: Orden fijo de negocio (Especialidades primero, Bebidas al final) en vez de alfabético
+- **Dashboard KPIs semanales**: Nuevos indicadores `orders_week`, `sales_week` y `new_customers_week` (últimos 60 días)
+- **Ventas detalle**: Nuevo endpoint `GET /admin/orders/{id}` + modal al hacer clic en una fila mostrando items, estatus, cliente, total, método de pago
+- **Caja timezone**: Timestamps formateados en `America/Mexico_City` (hora correcta de apertura/cierre)
+- **Clientes paginación**: Controles movidos arriba de la tabla junto a filtros
+- **Inventario paginación**: Botones Anterior/Siguiente visibles con labels
+
+### Nota de deploy
+- Ejecutar `php artisan menu:seed-from-data` en Render para corregir conteo de items del menú (111→104)
+
+### Archivos modificados
+- `backend/app/Http/Controllers/ExpenseController.php` — paginate()
+- `backend/app/Http/Controllers/MenuController.php` — CATEGORY_ORDER constante
+- `backend/app/Http/Controllers/OrderController.php` — dashboard KPIs semanales + show()
+- `backend/routes/api.php` — ruta GET /admin/orders/{id}
+- `frontend/src/pages/admin/Expenses.tsx` — paginación UI
+- `frontend/src/pages/admin/Customers.tsx` — paginación arriba
+- `frontend/src/pages/admin/Inventory.tsx` — arrows visibles
+- `frontend/src/pages/admin/CashRegister.tsx` — timeZone America/Mexico_City
+- `frontend/src/pages/admin/Orders.tsx` — modal detalle de orden
+- `frontend/src/components/admin/AdminLayout.tsx` — versión v2.4.1
+- `frontend/src/utils/mapDashboardResponse.ts` — orders_week, sales_week, new_customers_week
+
 ## v2.4.0 — 2026-03-06
 
 ### Menu Unification — Fuente Única de Verdad

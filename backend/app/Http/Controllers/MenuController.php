@@ -13,17 +13,37 @@ class MenuController extends Controller
     /**
      * List all available menu items (public).
      */
+    private const CATEGORY_ORDER = [
+        'Especialidades', 'Sopas y Ramen', 'Entradas', 'Kushiages',
+        'Makis', 'Makis Especiales', 'Yakimeshi', 'Yakisoba',
+        'Teppanyaki', 'Tempuras', 'Paquetes', 'Pastas Queen',
+        'Postres', 'Bebidas',
+    ];
+
     public function index(): JsonResponse
     {
         $items = MenuItem::where('available', true)
-            ->orderBy('category')
             ->orderBy('sort_order')
             ->get();
 
         $grouped = $items->groupBy('category');
 
+        // Reorder categories using fixed business order
+        $ordered = collect();
+        foreach (self::CATEGORY_ORDER as $cat) {
+            if ($grouped->has($cat)) {
+                $ordered[$cat] = $grouped[$cat];
+            }
+        }
+        // Append any categories not in the fixed list
+        foreach ($grouped as $cat => $catItems) {
+            if (!$ordered->has($cat)) {
+                $ordered[$cat] = $catItems;
+            }
+        }
+
         return response()->json([
-            'data' => $grouped,
+            'data' => $ordered,
             'total' => $items->count(),
         ]);
     }

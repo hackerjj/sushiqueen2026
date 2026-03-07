@@ -49,6 +49,11 @@ const Orders: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Order detail modal state
+  const [orderDetail, setOrderDetail] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
@@ -110,6 +115,15 @@ const Orders: React.FC = () => {
     setCustomerOptions([]);
     setShowDropdown(false);
     setPage(1);
+  };
+
+  const fetchOrderDetail = async (id: string) => {
+    try {
+      setLoadingDetail(true);
+      setDetailModalOpen(true);
+      const { data } = await api.get(`/admin/orders/${id}`);
+      setOrderDetail(data.data || data);
+    } catch { setOrderDetail(null); } finally { setLoadingDetail(false); }
   };
 
   /** Parse MongoDB dates: handles UTCDateTime objects, ISO strings, and date strings */
@@ -332,7 +346,7 @@ const Orders: React.FC = () => {
               </thead>
               <tbody>
                 {sorted.map((v) => (
-                  <tr key={v._id} className="border-b border-gray-50 hover:bg-gray-50">
+                  <tr key={v._id} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => fetchOrderDetail(v._id)}>
                     <td className="px-4 py-2.5 font-mono text-xs text-gray-600">{v.order_number}</td>
                     <td className="px-4 py-2.5 text-gray-700 text-xs">{formatDate(v.created_at)}</td>
                     <td className="px-4 py-2.5">
@@ -385,6 +399,58 @@ const Orders: React.FC = () => {
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Anterior</button>
           <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Siguiente</button>
+        </div>
+      )}
+      {/* Order Detail Modal */}
+      {detailModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">
+                {orderDetail ? `Orden #${orderDetail.order_number || ''}` : 'Detalle de Orden'}
+              </h3>
+              <button onClick={() => { setDetailModalOpen(false); setOrderDetail(null); }} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            {loadingDetail ? (
+              <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sushi-primary" /></div>
+            ) : orderDetail ? (
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-gray-500">Estado:</span> <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${orderDetail.status === 'closed' ? 'bg-green-100 text-green-700' : orderDetail.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{orderDetail.status || '—'}</span></div>
+                  <div><span className="text-gray-500">Fecha:</span> <span className="ml-1 text-gray-900">{formatDate(orderDetail.created_at)}</span></div>
+                  <div><span className="text-gray-500">Cliente:</span> <span className="ml-1 text-gray-900">{orderDetail.customer?.name || orderDetail.customer_name || 'Sin cliente'}</span></div>
+                  <div><span className="text-gray-500">Pago:</span> <span className="ml-1 text-gray-900">{orderDetail.payment_method || '—'}</span></div>
+                  <div><span className="text-gray-500">Tipo:</span> <span className="ml-1 text-gray-900">{orderDetail.type || '—'}</span></div>
+                  <div><span className="text-gray-500">Total:</span> <span className="ml-1 font-bold text-gray-900">${fmt(orderDetail.total || 0)}</span></div>
+                </div>
+                {/* Items */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Productos</h4>
+                  {Array.isArray(orderDetail.items) && orderDetail.items.length > 0 ? (
+                    <table className="w-full text-sm">
+                      <thead><tr className="text-left text-gray-500 border-b"><th className="py-1">Producto</th><th className="py-1 text-center">Cant.</th><th className="py-1 text-right">Precio</th><th className="py-1 text-right">Subtotal</th></tr></thead>
+                      <tbody>
+                        {orderDetail.items.map((item: any, i: number) => (
+                          <tr key={i} className="border-b border-gray-50">
+                            <td className="py-1.5 text-gray-900">{item.name || item.product_name || '—'}</td>
+                            <td className="py-1.5 text-center text-gray-600">{item.quantity || 1}</td>
+                            <td className="py-1.5 text-right text-gray-600">${fmt(item.price || item.unit_price || 0)}</td>
+                            <td className="py-1.5 text-right font-medium text-gray-900">${fmt((item.quantity || 1) * (item.price || item.unit_price || 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="text-gray-400 text-sm">Sin detalle de productos</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 text-center text-gray-400">No se pudo cargar el detalle</div>
+            )}
+          </div>
         </div>
       )}
     </AdminLayout>

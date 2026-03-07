@@ -90,7 +90,7 @@ const CashRegisterPage: React.FC = () => {
   };
 
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-  const fmtDate = (d: any) => { if (!d) return '—'; try { let s = d; if (typeof d === 'object' && d.$date) s = typeof d.$date === 'string' ? d.$date : new Date(parseInt(d.$date.$numberLong || d.$date)).toISOString(); const dt = typeof s === 'string' ? new Date(s.replace(' ', 'T')) : new Date(s); if (isNaN(dt.getTime())) return '—'; return dt.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return '—'; } };
+  const fmtDate = (d: any) => { if (!d) return '—'; try { let s = d; if (typeof d === 'object' && d.$date) s = typeof d.$date === 'string' ? d.$date : new Date(parseInt(d.$date.$numberLong || d.$date)).toISOString(); const dt = typeof s === 'string' ? new Date(s.replace(' ', 'T')) : new Date(s); if (isNaN(dt.getTime())) return '—'; return dt.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', timeZone: 'America/Mexico_City' }); } catch { return '—'; } };
   if (loading) {
     return (
       <AdminLayout title="Caja">
