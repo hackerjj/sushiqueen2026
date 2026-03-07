@@ -23,6 +23,7 @@ class CashRegister extends Model
         'system_amount',
         'user_amount',
         'difference',
+        'breakdown',
     ];
 
     protected $casts = [

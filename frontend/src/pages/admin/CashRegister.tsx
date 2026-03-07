@@ -3,51 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import type { CashRegister as CashRegisterType, CashMovementType, PaymentMethod } from '../../types';
-
-const movementTypeLabels: Record<string, string> = {
-  sale: 'Venta', expense: 'Gasto', withdrawal: 'Retiro', deposit: 'Depósito', tip: 'Propina',
-};
+import type { CashRegister as CashRegisterType } from '../../types';
 
 const CashRegisterPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [currentRegister, setCurrentRegister] = useState<CashRegisterType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [closeAmount, setCloseAmount] = useState(0);
-  const [movementModal, setMovementModal] = useState(false);
-  const [movementForm, setMovementForm] = useState({
-    type: 'expense' as CashMovementType,
-    amount: 0,
-    description: '',
-    payment_method: 'cash' as PaymentMethod,
-  });
   const [history, setHistory] = useState<CashRegisterType[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [filterStatus, setFilterStatus] = useState('');
-  const [filterYear, setFilterYear] = useState('');
-  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(String(new Date().getMonth() + 1));
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [filterMode, setFilterMode] = useState<'preset' | 'custom'>('preset');
+  // Nuevo arqueo modal
+  const [showArqueo, setShowArqueo] = useState(false);
+  const [arqueoForm, setArqueoForm] = useState({ efectivo: 0, tdc: 0, tdb: 0, transferencia: 0 });
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/admin/login'); return; }
   }, [isAuthenticated, navigate]);
 
-  const fetchCurrent = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/admin/cash-register/current');
-      setCurrentRegister(data.data || null);
-    } catch {
-      setCurrentRegister(null);
-    } finally { setLoading(false); }
-  }, []);
-
   const fetchHistory = useCallback(async () => {
     try {
+      setLoading(true);
       const params: Record<string, string | number> = { page: historyPage, per_page: 50 };
       if (filterStatus) params.status = filterStatus;
       if (filterMode === 'custom' && customFrom && customTo) {
@@ -74,35 +55,45 @@ const CashRegisterPage: React.FC = () => {
         const { data } = await api.get('/admin/cash-register/history');
         setHistory(Array.isArray(data.data) ? data.data : []);
       } catch { /* ignore */ }
-    }
+    } finally { setLoading(false); }
   }, [historyPage, filterStatus, filterYear, filterMonth, filterMode, customFrom, customTo]);
 
   useEffect(() => {
-    if (isAuthenticated) { fetchCurrent(); fetchHistory(); }
-  }, [fetchCurrent, fetchHistory, isAuthenticated]);
+    if (isAuthenticated) fetchHistory();
+  }, [fetchHistory, isAuthenticated]);
 
-  const closeRegister = async () => {
+  const submitArqueo = async () => {
+    const total = arqueoForm.efectivo + arqueoForm.tdc + arqueoForm.tdb + arqueoForm.transferencia;
     try {
-      await api.post('/admin/cash-register/close', { actual_amount: closeAmount });
-      setCloseAmount(0);
-      fetchCurrent();
-    } catch { /* ignore */ }
-  };
-
-  const addMovement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.post('/admin/cash-register/movement', movementForm);
-      setMovementModal(false);
-      setMovementForm({ type: 'expense', amount: 0, description: '', payment_method: 'cash' });
-      fetchCurrent();
+      await api.post('/admin/cash-register/open', { initial_amount: 0 });
+      await api.post('/admin/cash-register/close', { 
+        actual_amount: total,
+        breakdown: {
+          cash: arqueoForm.efectivo,
+          credit_card: arqueoForm.tdc,
+          debit_card: arqueoForm.tdb,
+          transfer: arqueoForm.transferencia,
+        }
+      });
+      setShowArqueo(false);
+      setArqueoForm({ efectivo: 0, tdc: 0, tdb: 0, transferencia: 0 });
+      fetchHistory();
     } catch { /* ignore */ }
   };
 
   const fmt = (n: number) => `${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-  const fmtDate = (d: any) => { if (!d) return '—'; try { let s = d; if (typeof d === 'object' && d.$date) s = typeof d.$date === 'string' ? d.$date : new Date(parseInt(d.$date.$numberLong || d.$date)).toISOString(); const dt = typeof s === 'string' ? new Date(s.replace(' ', 'T')) : new Date(s); if (isNaN(dt.getTime())) return '—'; return dt.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit', timeZone: 'America/Mexico_City' }); } catch { return '—'; } };
+  const fmtDate = (d: any) => {
+    if (!d) return '—';
+    try {
+      let s = d;
+      if (typeof d === 'object' && d.$date) s = typeof d.$date === 'string' ? d.$date : new Date(parseInt(d.$date.$numberLong || d.$date)).toISOString();
+      const dt = typeof s === 'string' ? new Date(s.replace(' ', 'T')) : new Date(s);
+      if (isNaN(dt.getTime())) return '—';
+      return dt.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
+    } catch { return '—'; }
+  };
 
-  // Chart data: group history by day, sum expected_amount (sales)
+  // Chart: group by day, sum system_amount
   const chartData = useMemo(() => {
     const byDay: Record<string, number> = {};
     history.forEach(reg => {
@@ -122,7 +113,6 @@ const CashRegisterPage: React.FC = () => {
 
   const totalPeriod = useMemo(() => history.reduce((sum, reg) => sum + ((reg as any).system_amount ?? reg.expected_amount ?? 0), 0), [history]);
   const maxBar = useMemo(() => Math.max(...chartData.map(([, v]) => v), 1), [chartData]);
-  const hasFilter = filterYear || (filterMode === 'custom' && customFrom && customTo);
 
   if (loading) {
     return (
@@ -134,107 +124,48 @@ const CashRegisterPage: React.FC = () => {
 
   return (
     <AdminLayout title="Caja">
-      {/* Current register controls (only when open) */}
-      {currentRegister && (
-        <div className="space-y-6 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <p className="text-xs text-gray-500">Monto Inicial</p>
-              <p className="text-xl font-bold text-gray-900">${fmt(currentRegister.initial_amount)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <p className="text-xs text-gray-500">Ventas</p>
-              <p className="text-xl font-bold text-green-600">${fmt(currentRegister.summary?.total_sales || 0)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <p className="text-xs text-gray-500">Gastos/Retiros</p>
-              <p className="text-xl font-bold text-red-600">${fmt((currentRegister.summary?.total_expenses || 0) + (currentRegister.summary?.total_withdrawals || 0))}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <p className="text-xs text-gray-500">Esperado en Caja</p>
-              <p className="text-xl font-bold text-blue-600">${fmt(currentRegister.expected_amount)}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
-              <p className="text-xs text-gray-500">Efectivo</p>
-              <p className="text-lg font-bold">${fmt(currentRegister.summary?.total_cash || 0)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
-              <p className="text-xs text-gray-500">Tarjeta</p>
-              <p className="text-lg font-bold">${fmt(currentRegister.summary?.total_card || 0)}</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
-              <p className="text-xs text-gray-500">Transferencia</p>
-              <p className="text-lg font-bold">${fmt(currentRegister.summary?.total_transfer || 0)}</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={() => setMovementModal(true)} className="bg-sushi-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">+ Registrar Movimiento</button>
-            <button onClick={() => { setCloseAmount(currentRegister.expected_amount); }} className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Cerrar Caja</button>
-          </div>
-          {closeAmount > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Arqueo de Caja</h3>
-              <div className="flex items-center gap-4">
-                <div>
-                  <label className="block text-xs text-gray-500">Monto Real en Caja</label>
-                  <input type="number" min={0} step={0.01} value={closeAmount} onChange={(e) => setCloseAmount(parseFloat(e.target.value) || 0)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-40" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500">Diferencia</label>
-                  <p className={`text-lg font-bold ${closeAmount - currentRegister.expected_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>${fmt(closeAmount - currentRegister.expected_amount)}</p>
-                </div>
-                <button onClick={closeRegister} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium ml-auto">Confirmar Cierre</button>
-              </div>
-            </div>
-          )}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="px-5 py-3 border-b border-gray-100"><h3 className="font-semibold text-gray-900">Movimientos del Turno</h3></div>
-            <div className="divide-y divide-gray-50">
-              {(currentRegister.movements || []).slice().reverse().map((mov, i) => (
-                <div key={i} className="px-5 py-3 flex items-center justify-between">
-                  <div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${mov.type === 'sale' ? 'bg-green-100 text-green-700' : mov.type === 'tip' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{movementTypeLabels[mov.type] || mov.type}</span>
-                    <span className="text-sm text-gray-600 ml-2">{mov.description}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-medium ${['sale', 'deposit', 'tip'].includes(mov.type) ? 'text-green-600' : 'text-red-600'}`}>{['sale', 'deposit', 'tip'].includes(mov.type) ? '+' : '-'}${fmt(mov.amount)}</p>
-                    <p className="text-xs text-gray-400">{mov.payment_method}</p>
-                  </div>
-                </div>
-              ))}
-              {(!currentRegister.movements || currentRegister.movements.length === 0) && (
-                <p className="px-5 py-8 text-center text-gray-400 text-sm">No hay movimientos aún</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Movement Modal */}
-      {movementModal && (
+      {/* Nuevo Arqueo Modal */}
+      {showArqueo && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Registrar Movimiento</h3>
-              <button onClick={() => setMovementModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <h3 className="font-semibold text-gray-900">Nuevo Arqueo de Caja</h3>
+              <button onClick={() => setShowArqueo(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            <form onSubmit={addMovement} className="p-6 space-y-4">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label><select value={movementForm.type} onChange={(e) => setMovementForm({ ...movementForm, type: e.target.value as CashMovementType })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"><option value="expense">Gasto</option><option value="withdrawal">Retiro</option><option value="deposit">Depósito</option></select></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Monto</label><input type="number" min={0} step={0.01} required value={movementForm.amount} onChange={(e) => setMovementForm({ ...movementForm, amount: parseFloat(e.target.value) || 0 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label><input required value={movementForm.description} onChange={(e) => setMovementForm({ ...movementForm, description: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label><select value={movementForm.payment_method} onChange={(e) => setMovementForm({ ...movementForm, payment_method: e.target.value as PaymentMethod })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select></div>
-              <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setMovementModal(false)} className="px-4 py-2 text-sm text-gray-600">Cancelar</button><button type="submit" className="bg-sushi-primary hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium">Guardar</button></div>
-            </form>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">💵 Efectivo</label>
+                <input type="number" min={0} step={0.01} value={arqueoForm.efectivo || ''} onChange={e => setArqueoForm({ ...arqueoForm, efectivo: parseFloat(e.target.value) || 0 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">💳 Tarjeta de Crédito</label>
+                <input type="number" min={0} step={0.01} value={arqueoForm.tdc || ''} onChange={e => setArqueoForm({ ...arqueoForm, tdc: parseFloat(e.target.value) || 0 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">💳 Tarjeta de Débito</label>
+                <input type="number" min={0} step={0.01} value={arqueoForm.tdb || ''} onChange={e => setArqueoForm({ ...arqueoForm, tdb: parseFloat(e.target.value) || 0 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🏦 Transferencia</label>
+                <input type="number" min={0} step={0.01} value={arqueoForm.transferencia || ''} onChange={e => setArqueoForm({ ...arqueoForm, transferencia: parseFloat(e.target.value) || 0 })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="flex justify-between text-sm"><span className="text-gray-500">Total:</span><span className="font-bold text-lg text-sushi-primary">${fmt(arqueoForm.efectivo + arqueoForm.tdc + arqueoForm.tdb + arqueoForm.transferencia)}</span></div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setShowArqueo(false)} className="px-4 py-2 text-sm text-gray-600">Cancelar</button>
+                <button onClick={submitArqueo} className="bg-sushi-primary hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium">Registrar Arqueo</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Arqueos de Caja */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="px-5 py-4 border-b border-gray-100">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 text-lg">ARQUEOS DE CAJA</h3>
+          <button onClick={() => setShowArqueo(true)} className="bg-sushi-primary hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">+ Nuevo Arqueo</button>
         </div>
         {/* Filters */}
         <div className="px-5 py-3 border-b flex items-center gap-3 flex-wrap">
@@ -249,7 +180,7 @@ const CashRegisterPage: React.FC = () => {
               </select>
               {filterYear && (
                 <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setHistoryPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                  <option value="">Mes</option>
+                  <option value="">Todo el año</option>
                   <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
                   <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
                   <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
@@ -272,7 +203,7 @@ const CashRegisterPage: React.FC = () => {
         </div>
 
         {/* Bar chart + total */}
-        {hasFilter && chartData.length > 0 && (
+        {chartData.length > 0 && (
           <div className="px-5 py-4 border-b">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-gray-700">Ventas por día</h4>
@@ -281,11 +212,11 @@ const CashRegisterPage: React.FC = () => {
                 <p className="text-xl font-bold text-sushi-primary">${fmt(totalPeriod)}</p>
               </div>
             </div>
-            <div className="flex items-end gap-1 h-32">
+            <div className="flex items-end gap-1 h-40">
               {chartData.map(([day, val]) => (
                 <div key={day} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <span className="text-[9px] text-gray-500 font-medium">${val >= 1000 ? `${Math.round(val / 1000)}k` : Math.round(val)}</span>
-                  <div className="w-full bg-sushi-primary/80 rounded-t" style={{ height: `${Math.max((val / maxBar) * 100, 2)}%` }} />
+                  <span className="text-[9px] text-gray-500 font-medium">${val >= 1000 ? `${(val / 1000).toFixed(1)}k` : Math.round(val)}</span>
+                  <div className="w-full bg-sushi-primary/80 rounded-t transition-all" style={{ height: `${Math.max((val / maxBar) * 100, 4)}%` }} />
                   <span className="text-[8px] text-gray-400 truncate w-full text-center">{day}</span>
                 </div>
               ))}
@@ -297,8 +228,8 @@ const CashRegisterPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-gray-500 border-b border-gray-200">
-              <th className="px-5 py-3 font-medium">Hora de apertura</th>
-              <th className="px-5 py-3 font-medium">Hora de cierre</th>
+              <th className="px-5 py-3 font-medium">Apertura</th>
+              <th className="px-5 py-3 font-medium">Cierre</th>
               <th className="px-5 py-3 font-medium">Caja</th>
               <th className="px-5 py-3 font-medium text-right">Sistema</th>
               <th className="px-5 py-3 font-medium text-right">Usuario</th>

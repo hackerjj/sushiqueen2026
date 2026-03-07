@@ -57,13 +57,30 @@ class CashRegisterController extends Controller
 
         $validated = $request->validate([
             'actual_amount' => 'required|numeric|min:0',
+            'breakdown' => 'nullable|array',
+            'breakdown.cash' => 'nullable|numeric|min:0',
+            'breakdown.credit_card' => 'nullable|numeric|min:0',
+            'breakdown.debit_card' => 'nullable|numeric|min:0',
+            'breakdown.transfer' => 'nullable|numeric|min:0',
         ]);
 
-        $register->update([
+        $updateData = [
             'actual_amount' => $validated['actual_amount'],
+            'user_amount' => $validated['actual_amount'],
             'closed_at' => now(),
             'status' => 'closed',
-        ]);
+        ];
+
+        if (isset($validated['breakdown'])) {
+            $updateData['breakdown'] = $validated['breakdown'];
+            $summary = $register->summary ?? [];
+            $summary['total_cash'] = $validated['breakdown']['cash'] ?? 0;
+            $summary['total_card'] = ($validated['breakdown']['credit_card'] ?? 0) + ($validated['breakdown']['debit_card'] ?? 0);
+            $summary['total_transfer'] = $validated['breakdown']['transfer'] ?? 0;
+            $updateData['summary'] = $summary;
+        }
+
+        $register->update($updateData);
 
         return response()->json(['message' => 'Caja cerrada', 'data' => $register->fresh()]);
     }
