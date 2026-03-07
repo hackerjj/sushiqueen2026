@@ -97,6 +97,7 @@ Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
 
     // Orders (MealLi POS)
     Route::get('/orders', [OrderController::class, 'index']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::patch('/orders/{id}', [OrderController::class, 'update']);
     Route::post('/orders/{id}/pay', [OrderController::class, 'pay']);
     Route::get('/orders/kitchen', [OrderController::class, 'kitchen']);

@@ -254,6 +254,26 @@ class OrderController extends Controller
         }
 
     /**
+     * Show order detail (admin).
+     */
+    public function show(string $id): JsonResponse
+    {
+        $order = Order::findOrFail($id);
+
+        $customer = null;
+        if ($order->customer_id) {
+            $customer = Customer::find($order->customer_id);
+        }
+
+        return response()->json([
+            'data' => [
+                'order' => $order,
+                'customer' => $customer ? ['_id' => $customer->_id, 'name' => $customer->name, 'phone' => $customer->phone] : null,
+            ],
+        ]);
+    }
+
+    /**
      * Update order status (admin).
      * Triggers WhatsApp notification if order source is 'whatsapp'.
      */
@@ -305,16 +325,20 @@ class OrderController extends Controller
     {
         try {
             $today = Carbon::today();
+            $startOfWeek = Carbon::now()->startOfWeek();
             $startOfMonth = Carbon::now()->startOfMonth();
 
         $todayOrders = Order::where('created_at', '>=', $today)->get();
+        $weekOrders = Order::where('created_at', '>=', $startOfWeek)->get();
         $monthOrders = Order::where('created_at', '>=', $startOfMonth)->get();
 
         $todayRevenue = $todayOrders->sum('total');
+        $weekRevenue = $weekOrders->sum('total');
         $monthRevenue = $monthOrders->sum('total');
 
         $pendingOrders = Order::where('status', 'pending')->count();
         $totalCustomers = Customer::count();
+        $newCustomers = Customer::where('created_at', '>=', Carbon::now()->subDays(60))->count();
 
         $ordersByStatus = Order::raw(function ($collection) {
             return $collection->aggregate([
@@ -398,10 +422,17 @@ class OrderController extends Controller
                 'orders' => $todayOrders->count(),
                 'revenue' => $todayRevenue,
             ],
+            'week' => [
+                'orders' => $weekOrders->count(),
+                'revenue' => $weekRevenue,
+            ],
             'month' => [
                 'orders' => $monthOrders->count(),
                 'revenue' => $monthRevenue,
             ],
+            'orders_week' => $weekOrders->count(),
+            'sales_week' => $weekRevenue,
+            'new_customers_week' => $newCustomers,
             'pending_orders' => $pendingOrders,
             'total_customers' => $totalCustomers,
             'orders_by_status' => $ordersByStatus,

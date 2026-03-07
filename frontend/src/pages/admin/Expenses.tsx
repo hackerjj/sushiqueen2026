@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
-import type { Expense, ExpenseCategory, ApiResponse, PaymentMethod } from '../../types';
+import type { Expense, ExpenseCategory, PaymentMethod } from '../../types';
 
 const CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: 'ingredientes', label: 'Ingredientes' },
@@ -100,6 +100,10 @@ const AdminExpenses: React.FC = () => {
   const [filterPeriod, setFilterPeriod] = useState('month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalExpensesCount, setTotalExpensesCount] = useState(0);
   const [tab, setTab] = useState<'list' | 'summary'>('list');
   const [summary, setSummary] = useState<{ by_category: CategorySummary[]; total: number } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -111,7 +115,7 @@ const AdminExpenses: React.FC = () => {
   const fetchExpenses = useCallback(async () => {
     try {
       setLoading(true);
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = { page, per_page: perPage };
       if (filterCategory) params.category = filterCategory;
       if (filterPeriod === 'custom') {
         if (startDate && endDate && exceedsMaxRange(startDate, endDate)) {
@@ -124,10 +128,19 @@ const AdminExpenses: React.FC = () => {
       } else if (filterPeriod) {
         params.period = filterPeriod;
       }
-      const { data } = await api.get<ApiResponse<Expense[]>>('/admin/expenses', { params });
+      const { data } = await api.get('/admin/expenses', { params });
       setExpenses(Array.isArray(data.data) ? data.data : []);
+      if (data.meta) {
+        setTotalPages(data.meta.last_page || data.last_page || 1);
+        setTotalExpensesCount(data.meta.total || data.total || 0);
+      } else if (data.last_page) {
+        setTotalPages(data.last_page);
+        setTotalExpensesCount(data.total || 0);
+      } else {
+        setTotalExpensesCount(Array.isArray(data.data) ? data.data.length : 0);
+      }
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [filterCategory, filterPeriod, startDate, endDate]);
+  }, [filterCategory, filterPeriod, startDate, endDate, page, perPage]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -209,7 +222,7 @@ const AdminExpenses: React.FC = () => {
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3 flex-wrap">
-          <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); if (e.target.value !== 'custom') { setStartDate(''); setEndDate(''); } }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+          <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); setPage(1); if (e.target.value !== 'custom') { setStartDate(''); setEndDate(''); } }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
             {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
           {filterPeriod === 'custom' && (
@@ -224,7 +237,7 @@ const AdminExpenses: React.FC = () => {
             </div>
           )}
           {tab === 'list' && (
-            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+            <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
               <option value="">Todas las categorías</option>
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
@@ -241,6 +254,27 @@ const AdminExpenses: React.FC = () => {
 
       {tab === 'list' && (
         <>
+          {/* Pagination controls */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-500">Por página:</label>
+              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none">
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={400}>400</option>
+              </select>
+              <span className="text-sm text-gray-500">{totalExpensesCount} gastos totales</span>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">← Anterior</button>
+                <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Siguiente →</button>
+              </div>
+            )}
+          </div>
+
           {loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sushi-primary" /></div>
           ) : (

@@ -147,7 +147,7 @@ const Customers: React.FC = () => {
 
   return (
     <AdminLayout title="Gestión de Clientes">
-      {/* Filters */}
+      {/* Filters + Pagination */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,6 +174,39 @@ const Customers: React.FC = () => {
           <option value="whatsapp">WhatsApp</option>
           <option value="facebook">Facebook</option>
         </select>
+        <div className="flex items-center gap-2">
+          <label htmlFor="perPage" className="text-sm text-gray-600">Por página:</label>
+          <select
+            id="perPage"
+            value={perPage}
+            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none"
+          >
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={400}>400</option>
+          </select>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >
+              ←
+            </button>
+            <span className="text-sm text-gray-600">Pág {page}/{totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >
+              →
+            </button>
+          </div>
+        )}
         <span className="text-sm text-gray-500 ml-auto">{total} clientes</span>
       </div>
 
@@ -231,42 +264,6 @@ const Customers: React.FC = () => {
         </div>
       )}
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="perPage" className="text-sm text-gray-600">Por página:</label>
-          <select
-            id="perPage"
-            value={perPage}
-            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-sushi-primary focus:border-transparent outline-none"
-          >
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={200}>200</option>
-            <option value={400}>400</option>
-          </select>
-        </div>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
-            >
-              Anterior
-            </button>
-            <span className="text-sm text-gray-600">Página {page} de {totalPages}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Customer Detail Modal */}
       {detail && (
