@@ -1,5 +1,37 @@
 # Changelog - MealLi POS (Sushi Queen)
 
+## v2.4.3 — 2026-03-07
+
+### Caja — Gráfica de ventas + filtros mejorados
+- Eliminado botón "Abrir Caja" arriba (no necesario, la caja se abre desde POS)
+- Eliminado botón "Nuevo arqueo de caja" (no funcional)
+- Gráfica de barras de ventas por día al seleccionar un filtro (año, mes, o personalizado)
+- Total del período filtrado visible junto a la gráfica
+- Filtro personalizado con calendario (fecha desde/hasta)
+- Filtros de Año y Mes para arqueos
+
+### Gastos — Fix filtro de período
+- Arreglado filtro Mes/Semana/Año que no mostraba datos (comparaba datetime con string)
+- Resumen por categoría ahora funciona con todos los filtros de período
+
+### POS Mostrador Express — Orden de categorías
+- Categorías en orden del negocio (Especialidades primero, Bebidas al final) en vez de alfabético
+
+### Ventas — Filtros de período
+- Nuevos filtros de Año y Mes para ver ventas por período
+- Contador "ventas totales" refleja el total real del filtro aplicado
+
+### Caja — Fix doble signo de pesos
+- Corregido `$$6,120.00` → `$6,120.00` en columnas Sistema y Usuario
+
+### Archivos modificados
+- `backend/app/Http/Controllers/ExpenseController.php` — Carbon datetime en filtros
+- `backend/app/Http/Controllers/CashRegisterController.php` — soporte from/to
+- `frontend/src/pages/admin/CashRegister.tsx` — reescrito con gráfica, filtros, sin abrir caja
+- `frontend/src/pages/admin/Orders.tsx` — filtros año/mes
+- `frontend/src/pages/admin/POS.tsx` — CATEGORY_ORDER para express
+- `frontend/src/components/admin/AdminLayout.tsx` — versión v2.4.3
+
 ## v2.4.1 — 2026-03-06
 
 ### Admin Fixes — Revisión Post-Deploy v2.4.0
