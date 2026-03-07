@@ -159,7 +159,7 @@ const Dashboard: React.FC = () => {
                   <td className="px-5 py-3 font-mono text-xs text-gray-600">{order.order_number || order._id.slice(-6).toUpperCase()}</td>
                   <td className="px-5 py-3 text-gray-500">{new Date(order.created_at).toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</td>
                   <td className="px-5 py-3 text-gray-700">{(order as any).customer?.name || '—'}</td>
-                  <td className="px-5 py-3 text-gray-600">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[order.type] || order.type || order.source}</td>
+                  <td className="px-5 py-3 text-gray-600">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[order.type] || order.type || '—'}</td>
                   <td className="px-5 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabels[order.status] || order.status}</span></td>
                   <td className="px-5 py-3 font-medium text-gray-900 text-right">${fmt(order.total)}</td>
                 </tr>
@@ -184,7 +184,6 @@ const Dashboard: React.FC = () => {
                 <div><span className="text-gray-500">Cliente:</span><p className="font-medium">{(selectedOrder as any).customer?.name || '—'}</p></div>
                 <div><span className="text-gray-500">Tipo:</span><p className="font-medium">{{ dine_in:'Local', takeout:'Mostrador', delivery:'Delivery' }[selectedOrder.type] || selectedOrder.type || '—'}</p></div>
                 <div><span className="text-gray-500">Pago:</span><p className="font-medium">{({ cash:'Efectivo', card:'Tarjeta', transfer:'Transferencia' } as Record<string,string>)[(selectedOrder as any).payment_method] || (selectedOrder as any).payment_method || '—'}</p></div>
-                <div><span className="text-gray-500">Fuente:</span><p className="font-medium">{selectedOrder.source || '—'}</p></div>
               </div>
               {selectedOrder.items && selectedOrder.items.length > 0 && (
                 <div>
