@@ -234,3 +234,23 @@ if (file_exists(__DIR__ . '/api_fudo_fallback.php')) {
 }
 
 
+
+// ─── Temporary: Reset admin password (remove after use) ─────────
+Route::get('/reset-admin', function () {
+    $token = request()->query('token');
+    if ($token !== env('METRICS_TOKEN')) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+    $user = \App\Models\User::where('email', 'admin@sushiqueen.com')->first();
+    if (!$user) {
+        $user = \App\Models\User::create([
+            'name' => 'Admin Sushi Queen',
+            'email' => 'admin@sushiqueen.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('admin123'),
+            'role' => 'admin',
+        ]);
+        return response()->json(['message' => 'Admin created', 'email' => $user->email]);
+    }
+    $user->update(['password' => \Illuminate\Support\Facades\Hash::make('admin123')]);
+    return response()->json(['message' => 'Password reset', 'email' => $user->email]);
+});
