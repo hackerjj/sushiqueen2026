@@ -48,6 +48,10 @@
         "sort-packages": true,
         "allow-plugins": {
             "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.2.30",
+            "ext-mongodb": "1.19.0"
         }
     },
     "minimum-stability": "stable",
