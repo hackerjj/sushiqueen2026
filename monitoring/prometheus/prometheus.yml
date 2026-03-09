@@ -35,7 +35,7 @@ scrape_configs:
     scrape_interval: 15s
     authorization:
       type: Bearer
-      credentials: '<METRICS_TOKEN>'
+      credentials: '3af8b91a2d24e92e3117707a6c10469020e6b4f572c6f5abb21b2d6a6fc1a5b4'
     static_configs:
       - targets: ['nginx:80']
         labels:

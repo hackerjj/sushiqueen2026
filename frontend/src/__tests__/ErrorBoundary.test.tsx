@@ -80,7 +80,7 @@ describe('ErrorBoundary', () => {
       return <div>Recovered successfully</div>;
     };
 
-    const { rerender } = render(
+    render(
       <ErrorBoundary>
         <ConditionalThrower />
       </ErrorBoundary>

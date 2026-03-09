@@ -23,7 +23,7 @@ describe('AuthGuard', () => {
   });
 
   it('redirects to /admin/login when no token exists', () => {
-    const { container } = renderWithRouter(
+    renderWithRouter(
       <AuthGuard>
         <div>Protected Content</div>
       </AuthGuard>
