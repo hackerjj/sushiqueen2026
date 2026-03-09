@@ -13,7 +13,8 @@ $dataPath = storage_path('app/fudo_data');
 // Migration route — calls artisan command
 Route::get('/admin/migrate-fudo', function () {
     $secret = request()->query('key');
-    if ($secret !== 'sushiqueen2026migrate') {
+    $expectedKey = env('MIGRATE_FUDO_KEY');
+    if (!$expectedKey || $secret !== $expectedKey) {
         return response()->json(['error' => 'Unauthorized'], 401);
     }
     $step = request()->query('step', 'all');

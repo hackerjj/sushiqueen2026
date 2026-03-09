@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests
         working-directory: frontend
-        run: npx vitest run --passWithNoTests || true
+        run: npx vitest run --passWithNoTests
 
       - name: Build
         working-directory: frontend
@@ -86,4 +86,4 @@ jobs:
 
       - name: Run tests
         working-directory: backend
-        run: vendor/bin/phpunit --testdox || true
+        run: vendor/bin/phpunit --testdox

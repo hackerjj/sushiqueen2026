@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { usePageTracking } from './hooks/useAnalytics';
+import ErrorBoundary from './components/ErrorBoundary';
+import AuthGuard from './components/AuthGuard';
 
 // Lazy-loaded public pages
 const Home = lazy(() => import('./pages/Home'));
@@ -8,6 +10,8 @@ const Menu = lazy(() => import('./pages/Menu'));
 const Order = lazy(() => import('./pages/Order'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Campaign = lazy(() => import('./pages/Campaign'));
+
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Admin pages (lazy)
 const AdminLogin = lazy(() => import('./pages/admin/Login'));
@@ -42,35 +46,40 @@ const App: React.FC = () => {
   usePageTracking();
 
   return (
-    <Suspense fallback={<Loading />}>
-      <Routes>
-        {/* Public Routes (Layout is inside each page) */}
-        <Route path="/" element={<Home />} />
-        <Route path="/menu" element={<Menu />} />
-        <Route path="/order" element={<Order />} />
-        <Route path="/promotions" element={<Promotions />} />
-        <Route path="/campaign" element={<Campaign />} />
+    <ErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          {/* Public Routes (Layout is inside each page) */}
+          <Route path="/" element={<Home />} />
+          <Route path="/menu" element={<Menu />} />
+          <Route path="/order" element={<Order />} />
+          <Route path="/promotions" element={<Promotions />} />
+          <Route path="/campaign" element={<Campaign />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<Dashboard />} />
-        <Route path="/admin/pos" element={<POS />} />
-        <Route path="/admin/kitchen" element={<Kitchen />} />
-        <Route path="/admin/delivery" element={<Delivery />} />
-        <Route path="/admin/cash-register" element={<CashRegister />} />
-        <Route path="/admin/menu" element={<MenuManager />} />
-        <Route path="/admin/orders" element={<AdminOrders />} />
-        <Route path="/admin/customers" element={<Customers />} />
-        <Route path="/admin/promotions" element={<AdminPromotions />} />
-        <Route path="/admin/insights" element={<Insights />} />
-        <Route path="/admin/inventory" element={<Inventory />} />
-        <Route path="/admin/suppliers" element={<Suppliers />} />
-        <Route path="/admin/tables" element={<Tables />} />
-        <Route path="/admin/recipes" element={<Recipes />} />
-        <Route path="/admin/reports" element={<Reports />} />
-        <Route path="/admin/expenses" element={<Expenses />} />
-      </Routes>
-    </Suspense>
+          {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AuthGuard><Dashboard /></AuthGuard>} />
+          <Route path="/admin/pos" element={<AuthGuard><POS /></AuthGuard>} />
+          <Route path="/admin/kitchen" element={<AuthGuard><Kitchen /></AuthGuard>} />
+          <Route path="/admin/delivery" element={<AuthGuard><Delivery /></AuthGuard>} />
+          <Route path="/admin/cash-register" element={<AuthGuard><CashRegister /></AuthGuard>} />
+          <Route path="/admin/menu" element={<AuthGuard><MenuManager /></AuthGuard>} />
+          <Route path="/admin/orders" element={<AuthGuard><AdminOrders /></AuthGuard>} />
+          <Route path="/admin/customers" element={<AuthGuard><Customers /></AuthGuard>} />
+          <Route path="/admin/promotions" element={<AuthGuard><AdminPromotions /></AuthGuard>} />
+          <Route path="/admin/insights" element={<AuthGuard><Insights /></AuthGuard>} />
+          <Route path="/admin/inventory" element={<AuthGuard><Inventory /></AuthGuard>} />
+          <Route path="/admin/suppliers" element={<AuthGuard><Suppliers /></AuthGuard>} />
+          <Route path="/admin/tables" element={<AuthGuard><Tables /></AuthGuard>} />
+          <Route path="/admin/recipes" element={<AuthGuard><Recipes /></AuthGuard>} />
+          <Route path="/admin/reports" element={<AuthGuard><Reports /></AuthGuard>} />
+          <Route path="/admin/expenses" element={<AuthGuard><Expenses /></AuthGuard>} />
+
+          {/* Catch-all 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   );
 };
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Order;
 use App\Services\AnalyticsService;
 use App\Services\CloudflareService;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class InsightsController extends Controller
 {
+    use ApiResponse;
+
     private AnalyticsService $analyticsService;
     private CloudflareService $cloudflareService;
 

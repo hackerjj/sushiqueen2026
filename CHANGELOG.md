@@ -186,7 +186,7 @@
 
 ### Base de Datos
 - Migración completa de Fudo a MongoDB via `php artisan fudo:migrate --fresh`
-- Ruta web de migración: `/api/admin/migrate-fudo?key=sushiqueen2026migrate`
+- Ruta web de migración: `/api/admin/migrate-fudo?key=<MIGRATE_FUDO_KEY>` (key configured via environment variable)
 - Datos migrados: 104 menú, 901 clientes, 14,759 órdenes, 178 ingredientes, 61 proveedores, 1,477 arqueos
 - Stats de clientes calculados por separado (step=stats)
 - Fix: removidos casts 'array' de modelos MongoDB que causaban json_decode error

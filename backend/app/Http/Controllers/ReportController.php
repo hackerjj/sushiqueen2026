@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Order;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    use ApiResponse;
     /**
      * GET /admin/reports/sales
      * Sales report with complete metrics.

@@ -46,6 +46,9 @@ return [
 
         // JWT Auth
         Tymon\JWTAuth\Providers\LaravelServiceProvider::class,
+
+        // Rate Limiting
+        App\Providers\RateLimitServiceProvider::class,
     ],
 
     'aliases' => Illuminate\Support\Facades\Facade::defaultAliases()->merge([

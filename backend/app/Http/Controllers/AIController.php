@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Customer;
 use App\Services\AIService;
 use Illuminate\Http\JsonResponse;
@@ -9,6 +10,8 @@ use Illuminate\Http\Request;
 
 class AIController extends Controller
 {
+    use ApiResponse;
+
     private AIService $aiService;
 
     public function __construct(AIService $aiService)

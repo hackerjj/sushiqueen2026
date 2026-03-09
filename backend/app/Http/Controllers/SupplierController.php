@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,9 +10,13 @@ use Illuminate\Routing\Controller;
 
 class SupplierController extends Controller
 {
-    public function index(): JsonResponse
+    use ApiResponse;
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(['data' => Supplier::orderBy('name')->get()]);
+        $suppliers = Supplier::orderBy('name')
+            ->paginate(min($request->input('per_page', 20), 100));
+
+        return response()->json($suppliers);
     }
 
     public function store(Request $request): JsonResponse

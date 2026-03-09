@@ -33,6 +33,9 @@ scrape_configs:
   - job_name: 'sushi-queen-api'
     metrics_path: /api/metrics
     scrape_interval: 15s
+    authorization:
+      type: Bearer
+      credentials: '<METRICS_TOKEN>'
     static_configs:
       - targets: ['nginx:80']
         labels:

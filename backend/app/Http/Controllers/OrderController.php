@@ -4,57 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Events\OrderCreated;
 use App\Events\OrderUpdated;
+use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderRequest;
+use App\Http\Traits\ApiResponse;
 use App\Models\Customer;
 use App\Models\MenuItem;
 use App\Models\Order;
+use App\Services\FudoService;
 use App\Services\InventoryService;
 use App\Services\POSService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class OrderController extends Controller
 {
+    use ApiResponse;
     /**
      * Create a new order (public).
      * Also creates or updates the customer record.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreOrderRequest $request): JsonResponse
     {
+        $validated = $request->validated();
+
         // Accept both flat format (customer_name) and nested format (customer.name)
         $hasNested = $request->has('customer');
-
-        $rules = [
-            'items' => 'required|array|min:1',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.modifiers' => 'nullable|array',
-            'items.*.notes' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'delivery_address' => 'nullable|string',
-            'source' => 'nullable|string|in:web,whatsapp,facebook,phone',
-            'send_to_fudo' => 'nullable|boolean',
-        ];
-
-        if ($hasNested) {
-            $rules['customer.name'] = 'required|string|max:255';
-            $rules['customer.phone'] = 'required|string|max:50';
-            $rules['customer.email'] = 'nullable|email';
-            $rules['customer.address'] = 'nullable|string';
-            $rules['items.*.menu_item_id'] = 'required|string';
-            $rules['items.*.name'] = 'nullable|string';
-            $rules['items.*.price'] = 'nullable|numeric';
-        } else {
-            $rules['customer_name'] = 'required|string|max:255';
-            $rules['customer_phone'] = 'required|string|max:50';
-            $rules['customer_email'] = 'nullable|email';
-            $rules['items.*.menu_item_id'] = 'required|string';
-        }
-
-        $validated = $request->validate($rules);
 
         // Normalize customer data from either format
         $customerName = $hasNested ? $validated['customer']['name'] : $validated['customer_name'];
@@ -181,6 +161,9 @@ class OrderController extends Controller
             ]);
         }
 
+        // Invalidate dashboard cache when a new order is created
+        Cache::forget('dashboard:' . md5(':'));
+
         return response()->json([
             'message' => 'Order created successfully',
             'data' => $order->load('customer'),
@@ -250,7 +233,7 @@ class OrderController extends Controller
 
                 return response()->json($orders);
             } catch (\Throwable $e) {
-                return response()->json(['data' => [], 'error' => $e->getMessage()], 200);
+                return $this->error($e->getMessage(), 500);
             }
         }
 
@@ -278,17 +261,11 @@ class OrderController extends Controller
      * Update order status (admin).
      * Triggers WhatsApp notification if order source is 'whatsapp'.
      */
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdateOrderRequest $request, string $id): JsonResponse
     {
         $order = Order::findOrFail($id);
 
-        $validated = $request->validate([
-            'status' => 'required|string|in:pending,confirmed,preparing,ready,delivering,delivered,cancelled',
-            'fudo_order_id' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'payment_method' => 'nullable|string',
-            'tip' => 'nullable|numeric',
-        ]);
+        $validated = $request->validated();
 
         $previousStatus = $order->status;
 
@@ -325,6 +302,29 @@ class OrderController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         try {
+            $cacheKey = 'dashboard:' . md5($request->input('from', '') . ':' . $request->input('to', ''));
+
+            $data = Cache::remember($cacheKey, 300, function () use ($request) {
+                return $this->buildDashboardData($request);
+            });
+
+            return response()->json($data);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'sales_today' => 0, 'sales_week' => 0, 'sales_month' => 0,
+                'orders_today' => 0, 'orders_week' => 0, 'orders_month' => 0,
+                'new_customers_week' => 0, 'total_customers' => 0,
+                'top_items' => [], 'sales_by_category' => [],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Build dashboard data (extracted for caching).
+     */
+    private function buildDashboardData(Request $request): array
+    {
             // Date range from filters (optional)
             $hasFilter = $request->has('from') || $request->has('to');
             if ($hasFilter) {
@@ -422,7 +422,7 @@ class OrderController extends Controller
                 }
             } catch (\Throwable $e) { /* ignore */ }
 
-            return response()->json([
+            return [
                 'sales_today' => $todayRevenue,
                 'sales_week' => $weekOrders->sum('total'),
                 'sales_month' => $rangeRevenue,
@@ -437,16 +437,7 @@ class OrderController extends Controller
                 'top_items_note' => $topItemsFallback ? 'Sin datos de productos — basado en menú' : null,
                 'last_day_label' => $lastDayLabel,
                 'filter_label' => $hasFilter ? $from->format('d/m/Y') . ' - ' . Carbon::parse($request->input('to'))->format('d/m/Y') : null,
-            ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'sales_today' => 0, 'sales_week' => 0, 'sales_month' => 0,
-                'orders_today' => 0, 'orders_week' => 0, 'orders_month' => 0,
-                'new_customers_week' => 0, 'total_customers' => 0,
-                'top_items' => [], 'sales_by_category' => [],
-                'error' => $e->getMessage(),
-            ]);
-        }
+            ];
     }
 
     /**

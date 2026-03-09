@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\MenuItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MenuController extends Controller
 {
+    use ApiResponse;
     /**
      * List all available menu items (public).
      */
@@ -22,30 +25,34 @@ class MenuController extends Controller
 
     public function index(): JsonResponse
     {
-        $items = MenuItem::where('available', true)
-            ->orderBy('sort_order')
-            ->get();
+        $data = Cache::remember('menu:public', 900, function () {
+            $items = MenuItem::where('available', true)
+                ->orderBy('sort_order')
+                ->get();
 
-        $grouped = $items->groupBy('category');
+            $grouped = $items->groupBy('category');
 
-        // Reorder categories using fixed business order
-        $ordered = collect();
-        foreach (self::CATEGORY_ORDER as $cat) {
-            if ($grouped->has($cat)) {
-                $ordered[$cat] = $grouped[$cat];
+            // Reorder categories using fixed business order
+            $ordered = collect();
+            foreach (self::CATEGORY_ORDER as $cat) {
+                if ($grouped->has($cat)) {
+                    $ordered[$cat] = $grouped[$cat];
+                }
             }
-        }
-        // Append any categories not in the fixed list
-        foreach ($grouped as $cat => $catItems) {
-            if (!$ordered->has($cat)) {
-                $ordered[$cat] = $catItems;
+            // Append any categories not in the fixed list
+            foreach ($grouped as $cat => $catItems) {
+                if (!$ordered->has($cat)) {
+                    $ordered[$cat] = $catItems;
+                }
             }
-        }
 
-        return response()->json([
-            'data' => $ordered,
-            'total' => $items->count(),
-        ]);
+            return [
+                'data' => $ordered,
+                'total' => $items->count(),
+            ];
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -102,6 +109,8 @@ class MenuController extends Controller
 
         $item = MenuItem::create($validated);
 
+        Cache::forget('menu:public');
+
         return response()->json([
             'message' => 'Menu item created',
             'data' => $item,
@@ -128,6 +137,8 @@ class MenuController extends Controller
 
         $item->update($validated);
 
+        Cache::forget('menu:public');
+
         return response()->json([
             'message' => 'Menu item updated',
             'data' => $item,
@@ -141,6 +152,8 @@ class MenuController extends Controller
     {
         $item = MenuItem::findOrFail($id);
         $item->delete();
+
+        Cache::forget('menu:public');
 
         return response()->json([
             'message' => 'Menu item deleted',

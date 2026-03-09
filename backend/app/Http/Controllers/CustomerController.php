@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Customer;
 use App\Models\Order;
 use Illuminate\Http\JsonResponse;
@@ -10,6 +11,7 @@ use Illuminate\Routing\Controller;
 
 class CustomerController extends Controller
 {
+    use ApiResponse;
     /**
      * List customers with pagination, search, filter by tier/source (admin).
      * Computes total_orders, total_spent, last_order_at, and predominant_order_type from orders.
@@ -35,7 +37,7 @@ class CustomerController extends Controller
         }
 
         $customers = $query->orderBy('total_spent', 'desc')
-            ->paginate($request->input('per_page', 20));
+            ->paginate(min($request->input('per_page', 20), 100));
 
         // Compute metrics from orders for each customer
         $customerIds = collect($customers->items())->pluck('_id')->map(fn ($id) => (string) $id)->toArray();

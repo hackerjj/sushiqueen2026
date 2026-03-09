@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Table;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,6 +10,7 @@ use Illuminate\Routing\Controller;
 
 class TableController extends Controller
 {
+    use ApiResponse;
     public function index(): JsonResponse
     {
         return response()->json(['data' => Table::orderBy('number')->get()]);

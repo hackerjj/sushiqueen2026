@@ -14,16 +14,18 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ─── Admin User ──────────────────────────────────────────
+        $adminEmail = env('ADMIN_EMAIL', 'admin@sushiqueen.com');
+        $adminPassword = env('ADMIN_PASSWORD', 'changeme');
         User::updateOrCreate(
-            ['email' => 'admin@sushiqueen.com'],
+            ['email' => $adminEmail],
             [
                 'name' => 'Admin Sushi Queen',
-                'email' => 'admin@sushiqueen.com',
-                'password' => Hash::make('admin123'),
+                'email' => $adminEmail,
+                'password' => Hash::make($adminPassword),
                 'role' => 'admin',
             ]
         );
-        $this->command->info('Admin user created: admin@sushiqueen.com / admin123');
+        $this->command->info('Admin user created. Configure ADMIN_EMAIL and ADMIN_PASSWORD env vars for production.');
 
         // ─── Tables: 4 Salón + 2 Terraza ────────────────────────
         $tables = [

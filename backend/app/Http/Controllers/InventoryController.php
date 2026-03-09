@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Ingredient;
 use App\Models\InventoryMovement;
 use App\Models\Supplier;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
+    use ApiResponse;
     public function ingredients(Request $request): JsonResponse
     {
         $query = Ingredient::query();
@@ -28,8 +30,7 @@ class InventoryController extends Controller
             $query->orderBy('name', 'asc');
         }
 
-        $perPage = (int) $request->input('per_page', 200);
-        $items = $query->paginate($perPage);
+        $items = $query->paginate(min($request->input('per_page', 20), 100));
         return response()->json($items);
     }
 

@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Services\AIService;
+use App\Http\Traits\RetryableHttpCall;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
+    use RetryableHttpCall;
     private Client $client;
     private string $phoneNumberId;
     private string $accessToken;
@@ -766,18 +768,19 @@ class WhatsAppService
      */
     private function sendMessage(string $to, array $messageData): array
     {
+        $payload = array_merge([
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+        ], $messageData);
+
         try {
-            $payload = array_merge([
-                'messaging_product' => 'whatsapp',
-                'recipient_type' => 'individual',
-                'to' => $to,
-            ], $messageData);
-
-            $response = $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => $payload,
-            ]);
-
-            $result = json_decode($response->getBody()->getContents(), true);
+            $result = $this->retryWithBackoff(function () use ($payload) {
+                $response = $this->client->post("{$this->phoneNumberId}/messages", [
+                    'json' => $payload,
+                ]);
+                return json_decode($response->getBody()->getContents(), true);
+            });
 
             Log::debug('WhatsAppService: Message sent', [
                 'to' => $to,
@@ -786,8 +789,8 @@ class WhatsAppService
             ]);
 
             return $result;
-        } catch (GuzzleException $e) {
-            Log::error('WhatsAppService: Failed to send message', [
+        } catch (\Throwable $e) {
+            Log::error('WhatsAppService: Failed to send message after retries', [
                 'to' => $to,
                 'type' => $messageData['type'] ?? 'unknown',
                 'error' => $e->getMessage(),
@@ -805,15 +808,17 @@ class WhatsAppService
         if (!$messageId) return;
 
         try {
-            $this->client->post("{$this->phoneNumberId}/messages", [
-                'json' => [
-                    'messaging_product' => 'whatsapp',
-                    'status' => 'read',
-                    'message_id' => $messageId,
-                ],
-            ]);
-        } catch (GuzzleException $e) {
-            Log::warning('WhatsAppService: Failed to mark message as read', [
+            $this->retryWithBackoff(function () use ($messageId) {
+                $this->client->post("{$this->phoneNumberId}/messages", [
+                    'json' => [
+                        'messaging_product' => 'whatsapp',
+                        'status' => 'read',
+                        'message_id' => $messageId,
+                    ],
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('WhatsAppService: Failed to mark message as read after retries', [
                 'message_id' => $messageId,
                 'error' => $e->getMessage(),
             ]);

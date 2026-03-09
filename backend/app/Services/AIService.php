@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Promotion;
+use App\Http\Traits\RetryableHttpCall;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class AIService
 {
+    use RetryableHttpCall;
     private Client $client;
     private string $apiKey;
     private string $model;
@@ -78,11 +80,12 @@ class AIService
         ];
 
         try {
-            $response = $this->client->post($url, [
-                'json' => $payload,
-            ]);
-
-            $body = json_decode($response->getBody()->getContents(), true);
+            $body = $this->retryWithBackoff(function () use ($url, $payload) {
+                $response = $this->client->post($url, [
+                    'json' => $payload,
+                ]);
+                return json_decode($response->getBody()->getContents(), true);
+            });
 
             // Extract text from Gemini response structure
             $text = $body['candidates'][0]['content']['parts'][0]['text'] ?? null;
@@ -100,15 +103,10 @@ class AIService
             ]);
 
             return $text;
-        } catch (GuzzleException $e) {
-            Log::error('AIService: Gemini API request failed', [
-                'error' => $e->getMessage(),
-                'code' => $e->getCode(),
-            ]);
-            return null;
         } catch (\Throwable $e) {
-            Log::error('AIService: Unexpected error calling Gemini', [
+            Log::error('AIService: Gemini API request failed after retries', [
                 'error' => $e->getMessage(),
+                'code' => method_exists($e, 'getCode') ? $e->getCode() : 0,
             ]);
             return null;
         }

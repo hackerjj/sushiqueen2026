@@ -16,6 +16,8 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TableController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Middleware\PrometheusMetrics;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,23 +32,40 @@ Route::get('/metrics', function () {
     return response(PrometheusMetrics::renderMetrics(), 200, [
         'Content-Type' => 'text/plain; version=0.0.4; charset=utf-8',
     ]);
-});
+})->middleware('metrics.auth');
 
 // ─── Health Check ────────────────────────────────────────────────
 
 Route::get('/health', function () {
+    $services = [];
+    $healthy = true;
+
+    // Check MongoDB
+    try {
+        DB::connection('mongodb')->getMongoClient()->selectDatabase('admin')->command(['ping' => 1]);
+        $services['mongodb'] = 'ok';
+    } catch (\Throwable $e) {
+        $services['mongodb'] = 'error: ' . $e->getMessage();
+        $healthy = false;
+    }
+
+    // Check Redis
+    try {
+        Cache::store('redis')->get('health-check');
+        $services['redis'] = 'ok';
+    } catch (\Throwable $e) {
+        $services['redis'] = 'error: ' . $e->getMessage();
+        $healthy = false;
+    }
+
     return response()->json([
-        'status' => 'ok',
+        'status' => $healthy ? 'ok' : 'degraded',
         'service' => 'MealLi POS API',
+        'version' => config('app.version', '1.0.0'),
+        'uptime' => round((microtime(true) - LARAVEL_START), 2) . 's',
+        'services' => $services,
         'timestamp' => now()->toISOString(),
-    ]);
-});
-
-// ─── Seed Endpoint (for initial data population) ─────────────────
-
-Route::get('/seed', function () {
-    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-    return response()->json(['message' => 'Database seeded successfully']);
+    ], $healthy ? 200 : 503);
 });
 
 // ─── Public Routes ───────────────────────────────────────────────
@@ -58,13 +77,13 @@ Route::prefix('menu')->group(function () {
 
 Route::get('/promotions', [PromotionController::class, 'active']);
 
-Route::post('/orders', [OrderController::class, 'store']);
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 Route::get('/orders/{id}/status', [OrderController::class, 'status']);
 
 // ─── Auth Routes ─────────────────────────────────────────────────
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -74,7 +93,7 @@ Route::prefix('auth')->group(function () {
 
 // ─── Admin Routes (JWT Protected) ───────────────────────────────
 
-Route::prefix('admin')->middleware(['jwt.auth'])->group(function () {
+Route::prefix('admin')->middleware(['jwt.auth', 'throttle:admin-api'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [OrderController::class, 'dashboard']);
@@ -214,57 +233,4 @@ if (file_exists(__DIR__ . '/api_fudo_fallback.php')) {
     require __DIR__ . '/api_fudo_fallback.php';
 }
 
-// ─── Migration route (run from browser) ─────────────────────────
-Route::get('/migrate-fudo', function () {
-    $secret = request()->query('key');
-    if ($secret !== 'sushiqueen2026migrate') {
-        return response()->json(['error' => 'Unauthorized'], 401);
-    }
 
-    try {
-        \Illuminate\Support\Facades\Artisan::call('fudo:migrate', ['--fresh' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return response()->json(['success' => true, 'output' => $output]);
-    } catch (\Throwable $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
-    }
-});
-
-// ─── Post-deploy maintenance (menu seed + customer stats) ────────
-Route::get('/post-deploy', function () {
-    $secret = request()->query('key');
-    if ($secret !== 'sushiqueen2026migrate') {
-        return response()->json(['error' => 'Unauthorized'], 401);
-    }
-
-    $results = [];
-
-    // 1. Seed menu from data
-    try {
-        \Illuminate\Support\Facades\Artisan::call('menu:seed-from-data');
-        $results['menu_seed'] = trim(\Illuminate\Support\Facades\Artisan::output());
-    } catch (\Throwable $e) {
-        $results['menu_seed'] = 'ERROR: ' . $e->getMessage();
-    }
-
-    // 2. Recalculate customer stats (total_orders, total_spent)
-    try {
-        $customers = \App\Models\Customer::all();
-        $updated = 0;
-        foreach ($customers as $customer) {
-            $orders = \App\Models\Order::where('customer.phone', $customer->phone)->get();
-            $totalOrders = $orders->count();
-            $totalSpent = $orders->sum('total');
-            $customer->update([
-                'total_orders' => $totalOrders,
-                'total_spent' => $totalSpent,
-            ]);
-            $updated++;
-        }
-        $results['customer_stats'] = "Updated {$updated} customers";
-    } catch (\Throwable $e) {
-        $results['customer_stats'] = 'ERROR: ' . $e->getMessage();
-    }
-
-    return response()->json(['success' => true, 'results' => $results]);
-});

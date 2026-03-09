@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Ingredient;
 use App\Models\MenuItem;
 use App\Models\Recipe;
@@ -11,6 +12,7 @@ use Illuminate\Routing\Controller;
 
 class RecipeController extends Controller
 {
+    use ApiResponse;
     public function index(): JsonResponse
     {
         $recipes = Recipe::all();

@@ -117,8 +117,7 @@ MealLi (Meal + Li) is the internal POS engine that replaced the Fudo POS depende
 
 ### Login
 
-- Email: `admin@sushiqueen.com`
-- Password: `admin123`
+Admin credentials are configured via the database seeder (`php artisan db:seed`) or environment variables. Do not commit credentials to the repository.
 
 ## API Endpoints
 

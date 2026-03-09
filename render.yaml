@@ -19,9 +19,9 @@ services:
       - key: APP_URL
         value: "https://sushi-queen-backend.onrender.com"
       - key: APP_KEY
-        value: "base64:xirb/tT2nTYGtVDi9BFlGrKtvKXPs48Mncsy6qx80Jk="
+        sync: false
       - key: JWT_SECRET
-        value: "s0b0aVnb1DOG6NWgUZNzvIEwQpO+FW7H6WD8zLxjzqG/lvM1lREq6tMVcptvt0r+otIx9jHVrbzDGM5u/IEVGw=="
+        sync: false
       - key: JWT_TTL
         value: "60"
       - key: PORT
@@ -29,11 +29,11 @@ services:
       - key: DB_CONNECTION
         value: mongodb
       - key: MONGO_URI
-        value: "mongodb+srv://jairalonsogarcias_db_user:rTS47frTdRtG2NUh@sushiqueen.34hq2xo.mongodb.net/sushi_queen?retryWrites=true&w=majority&appName=sushiqueen"
+        sync: false
       - key: MONGO_DATABASE
         value: sushi_queen
       - key: CACHE_DRIVER
-        value: file
+        value: redis
       - key: SESSION_DRIVER
         value: file
       - key: QUEUE_CONNECTION

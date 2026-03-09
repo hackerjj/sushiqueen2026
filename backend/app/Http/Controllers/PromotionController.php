@@ -2,26 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 
 class PromotionController extends Controller
 {
+    use ApiResponse;
     /**
      * List active non-expired promotions (public).
      */
     public function active(): JsonResponse
     {
-        $promotions = Promotion::active()
-            ->orderBy('starts_at', 'desc')
-            ->get();
+        $data = Cache::remember('promotions:active', 1800, function () {
+            $promotions = Promotion::active()
+                ->orderBy('starts_at', 'desc')
+                ->get();
 
-        return response()->json([
-            'data' => $promotions,
-            'total' => $promotions->count(),
-        ]);
+            return [
+                'data' => $promotions,
+                'total' => $promotions->count(),
+            ];
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -61,6 +68,8 @@ class PromotionController extends Controller
 
         $promotion = Promotion::create($validated);
 
+        Cache::forget('promotions:active');
+
         return response()->json([
             'message' => 'Promotion created',
             'data' => $promotion,
@@ -90,6 +99,8 @@ class PromotionController extends Controller
 
         $promotion->update($validated);
 
+        Cache::forget('promotions:active');
+
         return response()->json([
             'message' => 'Promotion updated',
             'data' => $promotion,
@@ -103,6 +114,8 @@ class PromotionController extends Controller
     {
         $promotion = Promotion::findOrFail($id);
         $promotion->delete();
+
+        Cache::forget('promotions:active');
 
         return response()->json([
             'message' => 'Promotion deleted',

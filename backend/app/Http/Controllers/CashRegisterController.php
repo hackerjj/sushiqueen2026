@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\CashRegister;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,6 +10,7 @@ use Illuminate\Routing\Controller;
 
 class CashRegisterController extends Controller
 {
+    use ApiResponse;
     public function current(): JsonResponse
     {
         $register = CashRegister::where('status', 'open')->orderBy('opened_at', 'desc')->first();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ApiResponse;
 use App\Models\Expense;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -10,6 +11,7 @@ use Illuminate\Routing\Controller;
 
 class ExpenseController extends Controller
 {
+    use ApiResponse;
     /**
      * List expenses with optional filters by period and category.
      */
